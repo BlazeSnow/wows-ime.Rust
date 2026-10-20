@@ -47,8 +47,14 @@
 - 语言切换改为立即生效（原版需重启应用），因为 i18next 支持运行时切换。
 - 状态反馈统一用 `sonner` 的 toast。
 
+## M6 · 打包与发布
+
+- 商店包身份沿用原 WinUI 3 版本的 `BlazeSnow.WOWS-IME`，商店列表得以延续；打包脚本与清单模板参照 `MessagesEncrypter` 的成熟方案移植。
+- 商店图标资源直接复用原 WinUI 3 项目的 `Assets`（含 `scale` / `targetsize` / `altform-unplated` 全部变体），并补齐清单按裸文件名引用所需的副本。
+- `make-msix.ps1` 默认从 `package.json` 取版本号并补足四段式；`makeappx bundle` 必须显式传 `/bv`，否则 bundle 版本会取打包时刻的 UTC 时间，与包内版本不一致。
+- GitHub Actions 在推送 `v*` tag 时构建 x64 + arm64 并发布 `.msixbundle`。
+
 ## 待办
 
-- msixbundle 打包脚本与发布工作流（M6）。
+- msixbundle 实际打包未实测：本机未安装 Windows SDK（缺 `makeappx` / `makepri`）。
 - 旧 WinUI 3 版本真实数据的迁移实测。
-- `CHANGELOG.md` 与 `README.md`（面向用户）待补。

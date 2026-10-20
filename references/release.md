@@ -38,7 +38,28 @@ tag 格式为 `v` + `version`（如 `v1.0.0`、`v1.0.0-beta.1`）；含 `-beta` 
 
 **只做 msixbundle 微软商店分发**，不做其它打包形式。打包脚本为 `scripts/make-msix.ps1`（`pnpm msix`）。
 
-应用仅支持 Windows：商店包的身份为 `BlazeSnow.WOWS-IME`，发布者 `CN=C171AF55-419C-4E73-B34E-CB98C8F1EB78`，与原 WinUI 3 版本一致，商店产品 ID 沿用原版（`9P0R5GM2PTKW`）。
+应用仅支持 Windows：商店包的身份沿用原 WinUI 3 版本（`BlazeSnow.WOWS-IME`，发布者 `CN=C171AF55-419C-4E73-B34E-CB98C8F1EB78`，商店产品 ID `9P0R5GM2PTKW`），商店列表得以延续。
+
+### 打包结构
+
+| 位置 | 内容 |
+| --- | --- |
+| `msix/AppxManifest.template.xml` | 清单模板，`@VERSION@` 与 `@ARCH@` 由脚本替换 |
+| `msix/assets/` | 商店图标资源（含 `scale` / `targetsize` / `altform-unplated` 全部变体与裸文件名副本） |
+| `scripts/make-msix.ps1` | 逐架构 `makeappx pack` → `makeappx bundle` |
+| `.github/workflows/release.yml` | 推送 `v*` tag 时构建 x64 + arm64 并发布 bundle |
+
+打包脚本默认从 `package.json` 取版本号并补足四段式（`2026.10.20` → `2026.10.20.0`），也可用 `-Version` 显式指定。`makeappx` 与 `makepri` 来自 Windows SDK，脚本会自行扫描所有固定磁盘下的 `Windows Kits\10\bin` 定位，不假设安装盘符。
+
+单架构与多架构：
+
+```powershell
+scripts/make-msix.ps1                                  # x64
+scripts/make-msix.ps1 -TargetArch x64,arm64 `
+    -RustTarget x86_64-pc-windows-msvc,aarch64-pc-windows-msvc
+```
+
+`makeappx bundle` 必须显式传 `/bv`（bundle 版本），否则会用打包时刻的 UTC 时间生成版本号，导致商店显示版本与包内实际版本不一致。
 
 ## 打包前检查
 
