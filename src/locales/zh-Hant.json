@@ -1,0 +1,12 @@
+{
+  "App.Title": "wows-ime",
+  "App.Subtitle": "《戰艦世界》中文輸入法設定修改器",
+  "Nav.Home": "首頁",
+  "Nav.Settings": "設定",
+  "Home.ComingSoon": "功能開發中",
+  "Settings.Language": "介面語言",
+  "Settings.LanguageAuto": "跟隨系統",
+  "Settings.Version": "版本",
+  "Settings.Repository": "專案倉庫",
+  "Settings.Homepage": "專案官網"
+}

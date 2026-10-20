@@ -1,0 +1,12 @@
+{
+  "App.Title": "wows-ime",
+  "App.Subtitle": "『ワールド・オブ・ウォーシップス』中国語入力設定変更ツール",
+  "Nav.Home": "ホーム",
+  "Nav.Settings": "設定",
+  "Home.ComingSoon": "機能開発中",
+  "Settings.Language": "表示言語",
+  "Settings.LanguageAuto": "システムに従う",
+  "Settings.Version": "バージョン",
+  "Settings.Repository": "リポジトリ",
+  "Settings.Homepage": "公式サイト"
+}
