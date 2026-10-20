@@ -13,6 +13,8 @@
     "tauri": "tauri",
     "build:web": "tsc && vite build",
     "msix": "powershell -ExecutionPolicy Bypass -File scripts/make-msix.ps1",
+    "icons": "pnpm icons:store && tauri icon assets/icon-square.png",
+    "icons:store": "powershell -ExecutionPolicy Bypass -File scripts/make-store-assets.ps1",
     "test": "vitest run",
     "test:watch": "vitest"
   },

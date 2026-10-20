@@ -80,3 +80,14 @@ pnpm build:web      # 前端构建（含 tsc 类型检查）
 | `tag.ps1` | 版本一致性校验 + 打 tag 推送 |
 | `run.ps1` | 一键运行（开发 / 发布 / 打包） |
 | `scripts/make-msix.ps1` | 打包 msixbundle |
+| `scripts/make-store-assets.ps1` | 由高清原图重新生成商店图标资源 |
+
+## 图标资源
+
+图标由 `assets/icon-source.png`（唯一来源，1240×1240 透明背景）统一生成，改图只改这一张：
+
+```powershell
+pnpm icons     # 生成方形母图 + 商店资源 + Tauri 图标集
+```
+
+生成物：`assets/icon-square.png`（方形母图）、`msix/assets/`（商店资源全变体）、`src-tauri/icons/`（Tauri 图标集）。详见 [implementation.md](implementation.md)。

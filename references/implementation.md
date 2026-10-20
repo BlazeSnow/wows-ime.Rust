@@ -54,6 +54,27 @@
 - `make-msix.ps1` 默认从 `package.json` 取版本号并补足四段式；`makeappx bundle` 必须显式传 `/bv`，否则 bundle 版本会取打包时刻的 UTC 时间，与包内版本不一致。
 - GitHub Actions 在推送 `v*` tag 时构建 x64 + arm64 并发布 `.msixbundle`。
 
+## 图标资源
+
+图标改为新的高清 IME 字样 artwork（原 WinUI 3 版用的是游戏锚形徽标）。仓库内保留唯一来源，可完整复现：
+
+| 位置 | 作用 |
+| --- | --- |
+| `assets/icon-source.png` | 原始高清图（1240×1240，透明背景），唯一来源，改图只改这里 |
+| `assets/icon-square.png` | 生成物：按内容包围盒裁出的方形母图 |
+| `msix/assets/` | 生成物：MSIX 商店资源（scale / targetsize / altform 全变体） |
+| `src-tauri/icons/` | 生成物：Tauri 图标集（含 Appx 徽标、ico、icns） |
+
+重新生成：
+
+```powershell
+pnpm icons     # = icons:store + tauri icon assets/icon-square.png
+```
+
+- `scripts/make-store-assets.ps1` 先由原图求内容包围盒（只看 alpha），生成带 8% 边距的方形母图，再用母图渲染各规格资源；方形资源等比缩放到画布内，宽幅资源按高度缩放并水平居中。
+- 母图统一后，Tauri 图标集与商店资源的留白比例完全一致，不会出现两处图标大小不同的情况。
+- 原 WinUI 3 版的 MRT scale 表（50/63/75/100/200、44/55/66/88/176、150/188/225/300/600 等）逐项沿用，只换图像来源。
+
 ## 待办
 
 - msixbundle 实际打包未实测：本机未安装 Windows SDK（缺 `makeappx` / `makepri`）。
