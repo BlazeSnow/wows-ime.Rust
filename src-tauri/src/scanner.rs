@@ -345,6 +345,14 @@ mod tests {
     fn scan_returns_sorted_unique_candidates_on_this_machine() {
         // 冒烟测试：结果依赖真实系统输入法配置，只断言结构稳定。
         let result = scan();
+        println!(
+            "扫描到 {} 个输入法，警告码 {:?}",
+            result.candidates.len(),
+            result.warning_code
+        );
+        for candidate in &result.candidates {
+            println!("  - {} ({:?})", candidate.display_name, candidate.category);
+        }
         let mut names: Vec<String> = result
             .candidates
             .iter()

@@ -1,6 +1,9 @@
+import { openPath } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
+import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { getAppVersion, setSetting } from "../lib/api";
 import {
   LANGUAGE_AUTO,
   LANGUAGE_JA,
@@ -24,17 +26,20 @@ import {
   LANGUAGE_ZH_HANS,
   LANGUAGE_ZH_HANT,
 } from "../i18n";
+import { getAppVersion, getLanguagePreference, setSetting } from "../lib/api";
 
 const SETTING_LANGUAGE = "Settings.Language";
+const PROJECT_WEBSITE = "https://www.blazesnow.com/wows/";
+const PROJECT_REPOSITORY = "https://github.com/BlazeSnow/wows-ime";
 
 const LANGUAGE_LABELS: Record<string, string> = {
-  [LANGUAGE_AUTO]: "Settings.LanguageAuto",
+  [LANGUAGE_AUTO]: "Settings/Automatic",
   [LANGUAGE_ZH_HANS]: "简体中文",
   [LANGUAGE_ZH_HANT]: "繁體中文",
   [LANGUAGE_JA]: "日本語",
 };
 
-/** 设置页：界面语言切换、版本信息与项目链接。 */
+/** 设置页：界面语言切换、软件版本与项目链接。 */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const [version, setVersion] = useState("");
@@ -42,6 +47,9 @@ export function SettingsPage() {
 
   useEffect(() => {
     void getAppVersion().then(setVersion).catch(() => setVersion(""));
+    void getLanguagePreference()
+      .then(setPreference)
+      .catch(() => setPreference(LANGUAGE_AUTO));
   }, []);
 
   const changeLanguage = async (next: string) => {
@@ -50,23 +58,35 @@ export function SettingsPage() {
     await setSetting(SETTING_LANGUAGE, next).catch(() => undefined);
   };
 
+  const openLink = async (url: string, failureKey: string) => {
+    const opened = await openPath(url).catch(() => false);
+    if (!opened) {
+      toast.error(t(failureKey));
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>{t("Settings.Language")}</CardTitle>
-          <CardDescription>{t("App.Subtitle")}</CardDescription>
+          <CardTitle>{t("Settings/LanguageLabel")}</CardTitle>
+          <CardDescription>{t("AppDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          <Label htmlFor="language-select">{t("Settings.Language")}</Label>
-          <Select value={preference} onValueChange={(value) => void changeLanguage(value)}>
+          <Label htmlFor="language-select">
+            {t("Settings/LanguageLabel")}
+          </Label>
+          <Select
+            value={preference}
+            onValueChange={(value) => void changeLanguage(value)}
+          >
             <SelectTrigger id="language-select" className="w-56">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {LANGUAGE_PREFERENCES.map((code) => (
                 <SelectItem key={code} value={code}>
-                  {LANGUAGE_LABELS[code]?.startsWith("Settings.")
+                  {LANGUAGE_LABELS[code].startsWith("Settings/")
                     ? t(LANGUAGE_LABELS[code])
                     : LANGUAGE_LABELS[code]}
                 </SelectItem>
@@ -78,10 +98,54 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("Settings.Version")}</CardTitle>
+          <CardTitle>{t("AppVersionCardHeader.Text")}</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           {version}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("ProjectWebsiteCardHeader.Text")}</CardTitle>
+          <CardDescription>
+            {t("ProjectWebsiteCard.Description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={() =>
+              void openLink(
+                PROJECT_WEBSITE,
+                "Status/OpenProjectWebsiteFailed",
+              )
+            }
+          >
+            {t("OpenProjectWebsiteButton.Content")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("ProjectRepositoryCardHeader.Text")}</CardTitle>
+          <CardDescription>
+            {t("ProjectRepositoryCard.Description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={() =>
+              void openLink(
+                PROJECT_REPOSITORY,
+                "Status/OpenProjectRepositoryFailed",
+              )
+            }
+          >
+            {t("OpenProjectRepositoryButton.Content")}
+          </Button>
         </CardContent>
       </Card>
     </div>
