@@ -9,6 +9,10 @@ coverage/
 src-tauri/target/
 src-tauri/gen/schemas/
 
+# 仅支持 Windows，忽略 tauri icon 生成的移动端图标
+src-tauri/icons/android/
+src-tauri/icons/ios/
+
 # MSIX 打包中间产物与输出
 msix/out/
 

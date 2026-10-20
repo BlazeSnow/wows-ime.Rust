@@ -6,13 +6,6 @@ use crate::error::{internal_error, AppResult};
 use crate::state::AppState;
 use crate::storage;
 
-/// 界面语言模式键（对应原 WinUI 3 版本的 `Settings.Language`）。
-pub const SETTING_LANGUAGE: &str = "Settings.Language";
-/// 当前选中的游戏根目录键（对应原版的 `Game.SelectedPath`）。
-pub const SETTING_SELECTED_GAME_PATH: &str = "Game.SelectedPath";
-/// 语言模式默认值：跟随系统。
-pub const LANGUAGE_AUTO: &str = "auto";
-
 /// 应用版本号（取自 Cargo.toml 的 package.version）。
 #[tauri::command]
 pub fn get_app_version() -> String {
@@ -29,7 +22,11 @@ pub fn get_data_dir(state: State<'_, AppState>) -> String {
 #[tauri::command]
 pub fn get_language_preference(state: State<'_, AppState>) -> AppResult<String> {
     let conn = state.db.lock().map_err(|_| internal_error())?;
-    Ok(storage::get_setting(&conn, SETTING_LANGUAGE, LANGUAGE_AUTO))
+    Ok(storage::get_setting(
+        &conn,
+        storage::SETTING_LANGUAGE,
+        storage::LANGUAGE_AUTO,
+    ))
 }
 
 /// 写入简单设置项（键值表）。

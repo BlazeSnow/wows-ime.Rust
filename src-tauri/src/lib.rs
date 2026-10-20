@@ -1,5 +1,8 @@
 mod commands;
 mod error;
+mod gameconfig;
+mod models;
+mod scanner;
 mod state;
 mod storage;
 mod window;
@@ -42,6 +45,17 @@ pub fn run() {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("打开设置库失败：{e}"))
             })?;
 
+            // 首次运行迁移旧 WinUI 3 版本（MSIX 包）的 config.json。
+            // 迁移失败不影响启动，按原版语义静默忽略。
+            if let Some(legacy_dir) = storage::legacy_local_state_dir() {
+                let _ = storage::migrate_legacy_config_json(&db, &legacy_dir);
+            }
+            let _ = storage::set_setting(
+                &db,
+                storage::SETTING_SCHEMA_VERSION,
+                storage::CURRENT_SCHEMA_VERSION,
+            );
+
             app.manage(AppState {
                 data_dir,
                 db: std::sync::Mutex::new(db),
@@ -80,6 +94,17 @@ pub fn run() {
             commands::app::get_language_preference,
             commands::app::get_setting,
             commands::app::set_setting,
+            commands::scanner::scan_input_methods,
+            commands::game::has_game_executable,
+            commands::game::resolve_target_config_files,
+            commands::game::existing_config_count,
+            commands::game::write_config_files,
+            commands::store::list_custom_game_paths,
+            commands::store::save_custom_game_paths,
+            commands::store::list_custom_input_methods,
+            commands::store::save_custom_input_methods,
+            commands::store::get_selected_game_path,
+            commands::store::set_selected_game_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
