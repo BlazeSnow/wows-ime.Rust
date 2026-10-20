@@ -49,15 +49,14 @@ version.ps1 / tag.ps1 # 版本同步 / 打 tag 触发发布
 | 文档 | 内容 |
 | --- | --- |
 | [references/README.md](references/README.md) | 索引与重构总原则 |
-| [references/features.md](references/features.md) | 功能设计与实现说明 |
+| [references/features.md](references/features.md) | 功能与用户流程 |
 | [references/ui.md](references/ui.md) | 界面与交互 |
-| [references/i18n.md](references/i18n.md) | 多语言规范 |
+| [references/game-config.md](references/game-config.md) | 游戏配置文件生成规则 |
 | [references/scanning.md](references/scanning.md) | 输入法扫描（TSF/COM） |
 | [references/storage.md](references/storage.md) | 持久化与数据迁移 |
-| [references/game-config.md](references/game-config.md) | 游戏配置文件生成规则 |
+| [references/i18n.md](references/i18n.md) | 多语言规范 |
 | [references/release.md](references/release.md) | 版本号规则与发布流程 |
 | [references/testing.md](references/testing.md) | 测试基线与兼容验收清单 |
-| [references/product-spec.md](references/product-spec.md) | 产品定位红线、FAQ 口径 |
 | [references/implementation.md](references/implementation.md) | **Tauri 2 实现记录与决策（重构版细节都在这里）** |
 
 文档中禁止出现原项目的本机绝对路径；需要指代时用「原 WinUI 3 版本」或公开 URL。
@@ -69,7 +68,7 @@ version.ps1 / tag.ps1 # 版本同步 / 打 tag 触发发布
 | M0 | 仓库初始化（Git 配置、脚本、文档骨架） | ✅ |
 | M1 | 脚手架：Tauri 2 + React + shadcn/ui | ✅ |
 | M2 | 后端核心：输入法扫描、游戏配置生成、持久化 | ✅ |
-| M3 | 前端页面：Home 三步向导 + 设置页 | ⬜ |
-| M4 | 多语言与本地化一致性校验 | ⬜ |
-| M5 | 数据迁移与兼容验收 | ⬜ |
+| M3 | 前端页面：Home 三步向导 + 设置页 | ✅ |
+| M4 | 多语言与本地化一致性校验 | ✅（三语 93 键，校验通过） |
+| M5 | 数据迁移与兼容验收 | ✅（迁移已实现并有单测；真机旧版数据待实测） |
 | M6 | msixbundle 打包与发布流程 | ⬜ |

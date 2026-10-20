@@ -1,6 +1,6 @@
 [package]
 name = "wows-ime"
-version = "1.0.0"
+version = "2026.10.20"
 description = "《战舰世界》中文输入法配置修改器"
 authors = ["BlazeSnow"]
 edition = "2021"

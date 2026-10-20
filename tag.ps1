@@ -1,4 +1,4 @@
-﻿#
+﻿<#
 .SYNOPSIS
   检查各版本文件与 package.json 一致后，创建并推送 git tag 发布。
 
@@ -109,6 +109,10 @@ try {
     # 2. 确定版本号：优先用 -Tag，否则 v + package.json 的 version（不做推断）
     if (-not $Tag) {
         $Tag = 'v' + $pkg.version
+        # 微软商店发布要求 tag 为四段式；三段式版本（如日期式 2026.10.20）自动补 .0
+        if ($Tag -match '^v\d+\.\d+\.\d+$') {
+            $Tag = "$Tag.0"
+        }
         Write-Host ''
         Write-Host '当前版本配置：'
         Write-Host "  baseVersion : $base（目标版本线）"
@@ -121,8 +125,8 @@ try {
         }
     }
 
-    if ($Tag -notmatch '^v\d+\.\d+\.\d+(-beta\.\d+)?$') {
-        throw "tag 格式不正确：$Tag（应为 vX.Y.Z 或 vX.Y.Z-beta.N，例如 v1.0.0、v1.0.0-beta.1）"
+    if ($Tag -notmatch '^v\d+\.\d+\.\d+\.\d+$' -and $Tag -notmatch '^v\d+\.\d+\.\d+(-beta\.\d+)?$') {
+        throw "tag 格式不正确：$Tag（微软商店需四段式 vX.Y.Z.W，如 v2026.10.20.0）"
     }
     $Beta = $Tag -match '-beta\.\d+$'
 

@@ -1,4 +1,4 @@
-﻿#
+﻿<#
 .SYNOPSIS
   将 package.json 中的版本号同步到 tauri.conf.json、Cargo.toml 与 Cargo.lock。
 
