@@ -79,3 +79,23 @@ pnpm icons     # = icons:store + tauri icon assets/icon-square.png
 
 - msixbundle 实际打包未实测：本机未安装 Windows SDK（缺 `makeappx` / `makepri`）。
 - 旧 WinUI 3 版本真实数据的迁移实测。
+
+## 脚本编码约定
+
+仓库内所有 `.ps1` 脚本必须满足三点，否则在 PowerShell 5.1 下会出怪问题：
+
+1. **UTF-8 带 BOM**：无 BOM 时 PowerShell 5.1 按系统 ANSI 代码页（本机为 GBK）解码，中文注释会被误解码，轻则报错、重则静默改变脚本语义。
+2. **CRLF 换行**：与 `.gitattributes` 的 `*.ps1 text eol=crlf` 一致。
+3. **首字符不可丢**：规范化编码时要用「按字节剥离 BOM 三字节再解码」的方式，**不要**用 `Substring(1)` 之类的字符串截断——一旦判断条件与实际不符，会把 BOM 后的第一个字符（常常是 `#` 或 `<`）吃掉，脚本会以莫名其妙的语法错误告终。
+
+校验方式（每次改动脚本后执行）：
+
+```powershell
+foreach ($f in (Get-ChildItem -Recurse -Filter *.ps1)) {
+    $errors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errors)
+    if ($errors) { Write-Error "$($f.Name): $($errors[0].Message)" }
+}
+```
+
+只做语法解析不够——首字符被吃掉时 `run.ps1` 仍能解析通过，但运行时会报「xx 不是可识别的 cmdlet」。改完脚本务必实跑一次。

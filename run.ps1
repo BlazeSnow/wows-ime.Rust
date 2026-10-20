@@ -1,4 +1,4 @@
-﻿ 构建并运行 wows-ime（Tauri 2）
+﻿# 构建并运行 wows-ime（Tauri 2）
 # 用法:
 #   .\run.ps1                  # 默认：debug 开发模式（vite 热重载 + 增量编译，改前端即时生效）
 #   .\run.ps1 -SkipBuild       # 跳过构建直接启动
