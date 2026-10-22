@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
@@ -87,6 +88,55 @@ describe("HomePage 三步向导", () => {
     toastWarning.mockReset();
     toastInfo.mockReset();
     stubInvoke();
+  });
+
+  it("StrictMode 下启动只扫描一次，且不弹提示", async () => {
+    render(
+      <StrictMode>
+        <HomePage />
+      </StrictMode>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("第 1 步，共 3 步")).toBeInTheDocument();
+    });
+
+    const scanCalls = invokeMock.mock.calls.filter(
+      (call) => call[0] === "scan_input_methods",
+    );
+    expect(scanCalls).toHaveLength(1);
+    // 启动阶段只是预扫描，提示留到第 2 步
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(toastWarning).not.toHaveBeenCalled();
+  });
+
+  it("进入第 2 步时才提示扫描结果", async () => {
+    const user = userEvent.setup();
+    await renderHome();
+
+    expect(toastSuccess).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith("扫描完成，共发现 2 个输入法。");
+    });
+  });
+
+  it("重新扫描时给出提示", async () => {
+    const user = userEvent.setup();
+    await renderHome();
+
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await waitFor(() => {
+      expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
+    });
+    toastSuccess.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "重新扫描" }));
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith("扫描完成，共发现 2 个输入法。");
+    });
   });
 
   it("首步列出三个预设游戏路径并默认选中第一个", async () => {

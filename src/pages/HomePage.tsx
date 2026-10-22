@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -113,6 +113,15 @@ export function HomePage() {
     [inputMethods],
   );
 
+  // 启动预扫描只执行一次（StrictMode 下 effect 会重复执行）
+  const initialScanStarted = useRef(false);
+  // 启动预扫描的 promise：进入第 2 步时等它完成，避免扫描未完就提示
+  const scanPromise = useRef<Promise<void> | null>(null);
+  // 最近一次扫描的结果，供进入第 2 步时提示
+  const scanOutcome = useRef<{ count: number; warning: string } | null>(null);
+  // 第 2 步的扫描提示只报一次
+  const scanNotified = useRef(false);
+
   // 载入游戏路径选项（预设 + 自定义），并恢复上次选择。
   const loadGamePaths = useCallback(async () => {
     const [savedPaths, savedSelection] = await Promise.all([
@@ -185,10 +194,19 @@ export function HomePage() {
     });
   }, []);
 
-  const scanInputMethodList = useCallback(async () => {
+  /**
+   * 扫描输入法。
+   *
+   * `silent` 为真时不弹提示——启动时的预扫描属于「准备数据」，
+   * 此时用户还在第 1 步，输入法列表尚未可见，提示时机不对；
+   * 真正的提示在进入第 2 步时给出（见 `goNext`）。
+   */
+  const scanInputMethodList = useCallback(async (silent = false) => {
     const result = await scanInputMethods().catch(() => null);
     if (!result) {
-      toast.error(t("Status/ScanCompletedNoImeWithWarning", { 0: "" }));
+      if (!silent) {
+        toast.error(t("Status/ScanCompletedNoImeWithWarning", { 0: "" }));
+      }
       return;
     }
 
@@ -206,7 +224,11 @@ export function HomePage() {
       const customs = current.filter((item) => item.isCustom);
       return [...scanned, ...customs];
     });
+    scanOutcome.current = { count: scanned.length, warning };
 
+    if (silent) {
+      return;
+    }
     if (scanned.length === 0 && warning) {
       toast.warning(t("Status/ScanCompletedNoImeWithWarning", { 0: warning }));
       return;
@@ -216,7 +238,14 @@ export function HomePage() {
 
   useEffect(() => {
     void loadGamePaths();
-    void scanInputMethodList().then(loadSavedCustomInputMethods);
+    // 预扫描只做一次：StrictMode 下 effect 会重复执行，重复扫描既浪费也会弹两次提示
+    if (initialScanStarted.current) {
+      return;
+    }
+    initialScanStarted.current = true;
+    scanPromise.current = scanInputMethodList(true).then(() =>
+      loadSavedCustomInputMethods(),
+    );
   }, [loadGamePaths, scanInputMethodList, loadSavedCustomInputMethods]);
 
   const persistSelectedGamePath = (path: string) => {
@@ -374,6 +403,25 @@ export function HomePage() {
     if (step === 2 && selectedInputMethods.length === 0) {
       toast.warning(t("Status/SelectAtLeastOneIme"));
       return;
+    }
+    if (step === 1) {
+      // 输入法列表在第 2 步才可见，扫描结果到这一步再提示
+      await scanPromise.current;
+      if (!scanNotified.current) {
+        scanNotified.current = true;
+        const outcome = scanOutcome.current;
+        if (outcome) {
+          if (outcome.count === 0 && outcome.warning) {
+            toast.warning(
+              t("Status/ScanCompletedNoImeWithWarning", { 0: outcome.warning }),
+            );
+          } else {
+            toast.success(
+              t("Status/ScanCompletedWithCount", { 0: outcome.count }),
+            );
+          }
+        }
+      }
     }
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
@@ -576,7 +624,11 @@ export function HomePage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => void scanInputMethodList()}
+                onClick={() =>
+                  void scanInputMethodList().then(() =>
+                    loadSavedCustomInputMethods(),
+                  )
+                }
               >
                 {t("RefreshImeButton.Content")}
               </Button>
