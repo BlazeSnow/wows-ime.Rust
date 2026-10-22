@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -23,8 +23,6 @@ export interface UseGamePaths {
   gamePaths: GamePathOption[];
   /** 当前选中的路径。 */
   selectedGamePath: string;
-  /** 当前选中项（用于展示完整路径）。 */
-  selectedOption: GamePathOption | undefined;
   /** 待确认删除的路径。 */
   pendingDeletion: GamePathOption | null;
   selectGamePath: (path: string) => void;
@@ -184,15 +182,9 @@ export function useGamePaths(): UseGamePaths {
     }
   }, [selectedGamePath, t]);
 
-  const selectedOption = useMemo(
-    () => gamePaths.find((option) => option.path === selectedGamePath),
-    [gamePaths, selectedGamePath],
-  );
-
   return {
     gamePaths,
     selectedGamePath,
-    selectedOption,
     pendingDeletion,
     selectGamePath,
     addCustomGamePath,

@@ -29,9 +29,6 @@ export function GamePathStep({
   onRequestDeletion,
 }: GamePathStepProps) {
   const { t } = useTranslation();
-  const selected = gamePaths.find(
-    (option) => option.path === selectedGamePath,
-  );
 
   return (
     <Card>
@@ -81,9 +78,6 @@ export function GamePathStep({
             {t("OpenFolderButton.Content")}
           </Button>
         </div>
-        {selected && (
-          <p className="text-xs text-muted-foreground">{selected.path}</p>
-        )}
       </CardContent>
     </Card>
   );
