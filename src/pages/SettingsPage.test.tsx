@@ -52,6 +52,18 @@ describe("SettingsPage", () => {
     expect(screen.getByText("软件版本")).toBeInTheDocument();
   });
 
+  it("语言设置只出现一次标题，不重复", async () => {
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+    });
+    // 卡片标题即下拉框的可访问名称，页面上不应再出现第二个「语言」
+    expect(screen.getAllByText("语言")).toHaveLength(1);
+    // 可访问名称仍要能取到
+    expect(screen.getByLabelText("语言")).toBeInTheDocument();
+  });
+
   it("展示项目官网与仓库入口", async () => {
     render(<SettingsPage />);
 

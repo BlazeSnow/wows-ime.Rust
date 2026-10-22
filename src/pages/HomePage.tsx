@@ -557,7 +557,6 @@ export function HomePage() {
         <Card>
           <CardHeader>
             <CardTitle>{t("ImeSectionTitle.Text")}</CardTitle>
-            <CardDescription>{t("GamePathSectionHint.Text")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="grid grid-cols-[1fr_10rem_6rem] gap-2 text-xs text-muted-foreground">

@@ -11,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
-import { Label } from "../components/ui/label";
 import {
   Select,
   SelectContent,
@@ -68,17 +67,21 @@ export function SettingsPage() {
     <div className="flex flex-col gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>{t("Settings/LanguageLabel")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <Label htmlFor="language-select">
+          {/* 卡片标题同时作为下拉框的可访问名称，不再另立一个同名 label */}
+          <CardTitle id="language-setting-title">
             {t("Settings/LanguageLabel")}
-          </Label>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <Select
             value={preference}
             onValueChange={(value) => void changeLanguage(value)}
           >
-            <SelectTrigger id="language-select" className="w-56">
+            <SelectTrigger
+              id="language-select"
+              aria-labelledby="language-setting-title"
+              className="w-56"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
