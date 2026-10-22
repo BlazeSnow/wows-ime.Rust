@@ -57,8 +57,10 @@ export function SettingsPage() {
   };
 
   const openLink = async (url: string, failureKey: string) => {
-    const opened = await openPath(url).catch(() => false);
-    if (!opened) {
+    try {
+      // openPath 成功时 resolve 的是 void，只有 reject 才是真的打不开
+      await openPath(url);
+    } catch {
       toast.error(t(failureKey));
     }
   };

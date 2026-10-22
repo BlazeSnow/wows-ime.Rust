@@ -183,6 +183,33 @@ describe("HomePage 三步向导", () => {
     });
   });
 
+  it("打开目录成功时不提示失败", async () => {
+    const user = userEvent.setup();
+    openPathMock.mockResolvedValue(undefined);
+    await renderHome();
+
+    await user.click(screen.getByRole("button", { name: "打开目录" }));
+
+    await waitFor(() => {
+      expect(openPathMock).toHaveBeenCalled();
+    });
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("打开目录失败时才提示失败", async () => {
+    const user = userEvent.setup();
+    openPathMock.mockRejectedValue(new Error("目录不存在"));
+    await renderHome();
+
+    await user.click(screen.getByRole("button", { name: "打开目录" }));
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith(
+        "打开目录失败：C:\\Program Files (x86)\\Steam\\steamapps\\common\\World of Warships",
+      );
+    });
+  });
+
   it("首步列出三个预设游戏路径并默认选中第一个", async () => {
     await renderHome();
 

@@ -190,8 +190,10 @@ export function useGamePaths(): UseGamePaths {
     if (!selectedGamePath) {
       return;
     }
-    const opened = await openPath(selectedGamePath).catch(() => false);
-    if (!opened) {
+    try {
+      // openPath 成功时 resolve 的是 void，只有 reject 才是真的打不开
+      await openPath(selectedGamePath);
+    } catch {
       toast.error(t("Status/OpenDirectoryFailed", { 0: selectedGamePath }));
     }
   }, [selectedGamePath, t]);

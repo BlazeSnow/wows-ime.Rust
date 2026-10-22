@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 const { openPathMock } = vi.hoisted(() => ({ openPathMock: vi.fn() }));
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openPath: openPathMock }));
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
     success: vi.fn(),
-    error: vi.fn(),
+    error: toastError,
     warning: vi.fn(),
     info: vi.fn(),
   }),
@@ -40,6 +41,7 @@ describe("SettingsPage", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     openPathMock.mockReset();
+    toastError.mockReset();
     stubInvoke();
   });
 
@@ -101,7 +103,8 @@ describe("SettingsPage", () => {
 
   it("点击打开官网时调用系统默认程序", async () => {
     const user = userEvent.setup();
-    openPathMock.mockResolvedValue(true);
+    // openPath 成功时 resolve 的是 void
+    openPathMock.mockResolvedValue(undefined);
     render(<SettingsPage />);
 
     await waitFor(() => {
@@ -111,6 +114,37 @@ describe("SettingsPage", () => {
 
     await waitFor(() => {
       expect(openPathMock).toHaveBeenCalledWith(PROJECT_WEBSITE);
+    });
+  });
+
+  it("打开成功时不提示失败", async () => {
+    const user = userEvent.setup();
+    openPathMock.mockResolvedValue(undefined);
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "打开官网" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "打开官网" }));
+
+    await waitFor(() => {
+      expect(openPathMock).toHaveBeenCalled();
+    });
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("打开失败时才提示失败", async () => {
+    const user = userEvent.setup();
+    openPathMock.mockRejectedValue(new Error("没有关联的应用程序"));
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "打开官网" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "打开官网" }));
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith("打开项目官网失败。");
     });
   });
 
