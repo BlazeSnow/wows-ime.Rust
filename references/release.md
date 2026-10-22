@@ -60,6 +60,15 @@ scripts/make-msix.ps1 -TargetArch x64,arm64 `
 
 `makeappx bundle` 必须显式传 `/bv`（bundle 版本），否则会用打包时刻的 UTC 时间生成版本号，导致商店显示版本与包内实际版本不一致。
 
+### 清单编码
+
+`msix/AppxManifest.template.xml` 是 UTF-8（无 BOM）文本，打包脚本读它时必须显式 `-Encoding UTF8`：
+Windows PowerShell 5.1 的 `Get-Content` 默认按系统 ANSI 代码页读取（简体中文机器为 GBK），
+会把清单里的中文读成乱码，乱码字节甚至会吃掉 XML 结束标签的 `<`，产出无法解析的清单。
+
+脚本写清单时用 .NET API 固定写 UTF-8 无 BOM：PS 5.1 的 `Set-Content -Encoding UTF8` 会带 BOM 而 PS 7 不会，
+固定编码才能保证本地打包与 CI（`shell: pwsh`）产出完全一致。
+
 ## 打包前检查
 
 ```powershell

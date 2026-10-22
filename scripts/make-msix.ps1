@@ -113,9 +113,17 @@ for ($i = 0; $i -lt $ArchList.Count; $i++) {
     if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
         Write-Error "版本号必须为 x.y.z.w 四段格式: $Version"
     }
-    $manifest = (Get-Content (Join-Path $MsixDir "AppxManifest.template.xml") -Raw) `
+    # 必须显式指定 UTF8：Windows PowerShell 5.1 默认按系统 ANSI 代码页读取
+    # （简体中文机器为 GBK），会把清单里的中文读成乱码，甚至吃掉 XML 标签的 '<'
+    $manifest = (Get-Content (Join-Path $MsixDir "AppxManifest.template.xml") -Raw -Encoding UTF8) `
         -replace '@VERSION@', $Version -replace '@ARCH@', $arch
-    Set-Content -Path (Join-Path $stageDir "AppxManifest.xml") -Value $manifest -Encoding UTF8
+    # 固定写 UTF-8 无 BOM：PS 5.1 的 -Encoding UTF8 会带 BOM，PS 7 不会，
+    # 用 .NET API 写死编码，保证本地与 CI 产出完全一致
+    [System.IO.File]::WriteAllText(
+        (Join-Path $stageDir "AppxManifest.xml"),
+        $manifest,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
 
     # ---- 复制商店图标资源（含 scale/targetsize/altform-unplated 全部变体）----
     foreach ($asset in $RequiredAssets) {
