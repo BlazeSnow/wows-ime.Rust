@@ -60,4 +60,5 @@
 
 - 扫描结果依赖真实系统输入法配置，单元测试只断言结构（唯一性、排序），不断言具体条目。
 - COM 调用必须成对：`CoInitializeEx` 成功后必须 `CoUninitialize`。
-- 枚举得到的语言 ID 数组由 TSF 分配，不能释放（与原版一致）。
+- `GetLanguageList` 返回的语言 ID 数组由 COM 分配，用完必须 `CoTaskMemFree` 释放
+  （原 WinUI 3 版在 `finally` 里释放，本移植版同样在遍历结束后释放，避免每次扫描泄漏）。

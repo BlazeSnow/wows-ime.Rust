@@ -13,7 +13,8 @@ use std::collections::BTreeMap;
 
 use windows::core::GUID;
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
+    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER,
+    COINIT_APARTMENTTHREADED,
 };
 use windows::Win32::UI::TextServices::{ITfInputProcessorProfiles, TF_LANGUAGEPROFILE};
 
@@ -108,7 +109,7 @@ fn collect_candidates(candidates: &mut Vec<ScannedImeCandidate>) -> InputMethodS
             vec![format_hresult(error.code().0)],
         );
     }
-    if language_ids.is_null() || language_count == 0 {
+    if language_ids.is_null() {
         return warning(
             std::mem::take(candidates),
             GET_LANGUAGE_LIST_EMPTY_WARNING,
@@ -116,16 +117,14 @@ fn collect_candidates(candidates: &mut Vec<ScannedImeCandidate>) -> InputMethodS
         );
     }
 
-    let language_ids = unsafe { std::slice::from_raw_parts(language_ids, language_count as usize) };
-    let mut com_error: Option<i32> = None;
-    for &language_id in language_ids {
-        if !is_target_language_profile(language_id) {
-            continue;
-        }
-        if let Some(hresult) = collect_language_profiles(&profiles, language_id, candidates) {
-            com_error.get_or_insert(hresult);
-        }
-    }
+    // GetLanguageList 返回的数组由 COM 分配，必须用 CoTaskMemFree 释放
+    // （原 WinUI 3 版在 finally 里释放）。
+    let language_ids_ptr = language_ids;
+    let com_error = {
+        let ids = unsafe { std::slice::from_raw_parts(language_ids_ptr, language_count as usize) };
+        collect_candidates_for_languages(&profiles, ids, candidates)
+    };
+    unsafe { CoTaskMemFree(Some(language_ids_ptr.cast())) };
 
     if let Some(hresult) = com_error {
         return warning(
@@ -140,6 +139,24 @@ fn collect_candidates(candidates: &mut Vec<ScannedImeCandidate>) -> InputMethodS
         warning_code: None,
         warning_arguments: None,
     }
+}
+
+/// 遍历语言 ID 收集输入法；COM 调用失败时返回 HRESULT。
+fn collect_candidates_for_languages(
+    profiles: &ITfInputProcessorProfiles,
+    language_ids: &[u16],
+    candidates: &mut Vec<ScannedImeCandidate>,
+) -> Option<i32> {
+    let mut com_error: Option<i32> = None;
+    for &language_id in language_ids {
+        if !is_target_language_profile(language_id) {
+            continue;
+        }
+        if let Some(hresult) = collect_language_profiles(profiles, language_id, candidates) {
+            com_error.get_or_insert(hresult);
+        }
+    }
+    com_error
 }
 
 /// 枚举某个语言下的输入法配置文件；COM 调用失败时返回 HRESULT。
