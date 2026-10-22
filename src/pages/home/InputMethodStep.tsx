@@ -57,15 +57,22 @@ export function InputMethodStep({
               key={item.displayName}
               className="grid grid-cols-[1fr_10rem_6rem] items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"
             >
-              <label className="flex min-w-0 items-center gap-2">
-                <Checkbox
-                  checked={item.isSelected}
-                  onCheckedChange={(checked) =>
-                    onToggle(item.displayName, checked === true)
-                  }
-                />
-                <span className="truncate">{item.displayName}</span>
-              </label>
+              <div className="flex min-w-0 items-center gap-2">
+                <label className="flex min-w-0 items-center gap-2">
+                  <Checkbox
+                    checked={item.isSelected}
+                    onCheckedChange={(checked) =>
+                      onToggle(item.displayName, checked === true)
+                    }
+                  />
+                  <span className="truncate">{item.displayName}</span>
+                </label>
+                {!item.isCustom && (
+                  <Badge variant="secondary" className="shrink-0">
+                    {t("Ime/SystemSource")}
+                  </Badge>
+                )}
+              </div>
               <Select
                 value={item.category}
                 onValueChange={(value) =>
@@ -86,7 +93,7 @@ export function InputMethodStep({
                 </SelectContent>
               </Select>
               <div className="flex justify-end">
-                {item.isCustom ? (
+                {item.isCustom && (
                   <Button
                     variant="ghost"
                     size="xs"
@@ -94,8 +101,6 @@ export function InputMethodStep({
                   >
                     {t("DeleteCustomImeButtonTemplate.Content")}
                   </Button>
-                ) : (
-                  <Badge variant="secondary">IME</Badge>
                 )}
               </div>
             </div>

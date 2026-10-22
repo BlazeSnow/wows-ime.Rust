@@ -78,6 +78,7 @@
   "Tsf/ComException": "COMException {0}: {1}",
   "Tsf/GenericException": "TSF例外: {0}",
   "Ime/Weixin": "WeChat入力",
+  "Ime/SystemSource": "システム",
   "Nav/Home": "ホーム",
   "Nav/Settings": "設定",
   "Settings/LanguageLabel": "言語",
