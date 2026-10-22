@@ -18,6 +18,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { SettingsPage } from "./SettingsPage";
+import { PROJECT_REPOSITORY, PROJECT_WEBSITE } from "../lib/links";
 
 function stubInvoke(overrides: Record<string, unknown> = {}) {
   invokeMock.mockImplementation(async (cmd: string) => {
@@ -62,6 +63,30 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("button", { name: "打开仓库" })).toBeInTheDocument();
   });
 
+  it("卡片展示的地址与实际打开的地址一致", async () => {
+    const user = userEvent.setup();
+    openPathMock.mockResolvedValue(true);
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("项目官网")).toBeInTheDocument();
+    });
+
+    // 展示的地址直接来自链接常量，点击打开的必须是同一个地址
+    expect(screen.getByText(PROJECT_WEBSITE)).toBeInTheDocument();
+    expect(screen.getByText(PROJECT_REPOSITORY)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "打开官网" }));
+    await waitFor(() => {
+      expect(openPathMock).toHaveBeenCalledWith(PROJECT_WEBSITE);
+    });
+
+    await user.click(screen.getByRole("button", { name: "打开仓库" }));
+    await waitFor(() => {
+      expect(openPathMock).toHaveBeenCalledWith(PROJECT_REPOSITORY);
+    });
+  });
+
   it("点击打开官网时调用系统默认程序", async () => {
     const user = userEvent.setup();
     openPathMock.mockResolvedValue(true);
@@ -73,7 +98,7 @@ describe("SettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "打开官网" }));
 
     await waitFor(() => {
-      expect(openPathMock).toHaveBeenCalledWith("https://www.blazesnow.com/wows/");
+      expect(openPathMock).toHaveBeenCalledWith(PROJECT_WEBSITE);
     });
   });
 

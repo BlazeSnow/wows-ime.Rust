@@ -40,4 +40,4 @@ Copyright © 2026 BlazeSnow. 保留所有权利。
 
 ## 更新日志
 
-更新日志见：<https://github.com/BlazeSnow/wows-ime/blob/main/CHANGELOG.md>
+更新日志见：<https://github.com/BlazeSnow/wows-ime.Rust/blob/main/CHANGELOG.md>

@@ -27,10 +27,9 @@ import {
   LANGUAGE_ZH_HANT,
 } from "../i18n";
 import { getAppVersion, getLanguagePreference, setSetting } from "../lib/api";
+import { PROJECT_REPOSITORY, PROJECT_WEBSITE } from "../lib/links";
 
 const SETTING_LANGUAGE = "Settings.Language";
-const PROJECT_WEBSITE = "https://www.blazesnow.com/wows/";
-const PROJECT_REPOSITORY = "https://github.com/BlazeSnow/wows-ime";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   [LANGUAGE_AUTO]: "Settings/Automatic",
@@ -108,9 +107,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t("ProjectWebsiteCardHeader.Text")}</CardTitle>
-          <CardDescription>
-            {t("ProjectWebsiteCard.Description")}
-          </CardDescription>
+          <CardDescription>{PROJECT_WEBSITE}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button
@@ -130,9 +127,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t("ProjectRepositoryCardHeader.Text")}</CardTitle>
-          <CardDescription>
-            {t("ProjectRepositoryCard.Description")}
-          </CardDescription>
+          <CardDescription>{PROJECT_REPOSITORY}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button
