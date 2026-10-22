@@ -37,7 +37,7 @@ pub fn open(db_path: &Path) -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
-/// 建表（幂等）。
+/// 建表（幂等），并修复早期版本遗留的表结构。
 pub fn initialize(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS settings (
@@ -56,7 +56,87 @@ pub fn initialize(conn: &Connection) -> rusqlite::Result<()> {
              created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
              updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
          );",
+    )?;
+    ensure_timestamp_defaults(conn)
+}
+
+/// 早期版本建表时 `created_at` / `updated_at` 没有默认值，而写入语句只提供部分列，
+/// 会触发 `NOT NULL constraint failed` 导致保存静默失败。
+/// `CREATE TABLE IF NOT EXISTS` 不会改动已存在的表，因此这里检测并重建（保留数据）。
+fn ensure_timestamp_defaults(conn: &Connection) -> rusqlite::Result<()> {
+    for table in ["custom_game_paths", "custom_input_methods"] {
+        if rebuild_table_without_defaults(conn, table)? {
+            eprintln!("[storage] 已重建表 {table}：补上 created_at / updated_at 默认值");
+        }
+    }
+    Ok(())
+}
+
+/// 表的建表语句里某列是否带 DEFAULT。
+fn column_has_default(sql: &str, column: &str) -> bool {
+    sql.lines().any(|line| {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix(column) else {
+            return false;
+        };
+        // 确认命中的是该列的定义行（其后应是类型名）
+        let rest = rest.trim_start();
+        rest.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && rest.to_uppercase().contains("DEFAULT")
+    })
+}
+
+/// 重建缺少默认值的表（保留已有数据）。返回是否发生了重建。
+fn rebuild_table_without_defaults(conn: &Connection, table: &str) -> rusqlite::Result<bool> {
+    let ddl: Option<String> = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1",
+            params![table],
+            |row| row.get(0),
+        )
+        .ok();
+    let Some(ddl) = ddl else {
+        return Ok(false);
+    };
+    if column_has_default(&ddl, "created_at") && column_has_default(&ddl, "updated_at") {
+        return Ok(false);
+    }
+
+    let (columns, column_list, create) = match table {
+        "custom_game_paths" => (
+            "(display_name, path, created_at, updated_at)",
+            "display_name, path, created_at, updated_at",
+            "CREATE TABLE {name}_new (
+             display_name TEXT NOT NULL,
+             path         TEXT PRIMARY KEY,
+             created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+             updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+         );",
+        ),
+        "custom_input_methods" => (
+            "(display_name, category, created_at, updated_at)",
+            "display_name, category, created_at, updated_at",
+            "CREATE TABLE {name}_new (
+             display_name TEXT PRIMARY KEY,
+             category     TEXT NOT NULL,
+             created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+             updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+         );",
+        ),
+        _ => return Ok(false),
+    };
+    let sql = format!(
+        "{create}
+         INSERT INTO {{name}}_new {columns}
+             SELECT {column_list} FROM {{name}};
+         DROP TABLE {{name}};
+         ALTER TABLE {{name}}_new RENAME TO {{name}};",
+        columns = columns,
+        column_list = column_list
     )
+    .replace("{name}", table);
+    conn.execute_batch(&sql)?;
+    Ok(true)
 }
 
 /// 读取字符串设置项；不存在时返回 `default`。
@@ -109,8 +189,8 @@ pub fn save_custom_game_paths(
     let transaction = conn.unchecked_transaction()?;
     for path in paths {
         transaction.execute(
-            "INSERT INTO custom_game_paths (display_name, path, updated_at)
-             VALUES (?1, ?2, CURRENT_TIMESTAMP)
+            "INSERT INTO custom_game_paths (display_name, path, created_at, updated_at)
+             VALUES (?1, ?2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON CONFLICT(path) DO UPDATE SET
                  display_name = excluded.display_name,
                  updated_at = CURRENT_TIMESTAMP;",
@@ -129,8 +209,8 @@ pub fn save_custom_input_methods(
     let transaction = conn.unchecked_transaction()?;
     for method in methods {
         transaction.execute(
-            "INSERT INTO custom_input_methods (display_name, category, updated_at)
-             VALUES (?1, ?2, CURRENT_TIMESTAMP)
+            "INSERT INTO custom_input_methods (display_name, category, created_at, updated_at)
+             VALUES (?1, ?2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON CONFLICT(display_name) DO UPDATE SET
                  category = excluded.category,
                  updated_at = CURRENT_TIMESTAMP;",

@@ -67,6 +67,7 @@
   "Status/WriteCanceled": "書き込みをキャンセルしました。",
   "Status/WriteSucceededWithCount": "書き込み成功。{0} 個の設定ファイルを更新しました。",
   "Status/WriteFailed": "書き込みに失敗しました：{0}",
+  "Status/SaveFailed": "保存に失敗しました：{0}",
   "Status/OpenProjectWebsiteFailed": "プロジェクト公式サイトを開けませんでした。",
   "Status/OpenProjectRepositoryFailed": "プロジェクトリポジトリを開けませんでした。",
   "Status/ScanCompletedNoImeWithWarning": "スキャン完了。IMEが見つかりませんでした。TSFエラー：{0}",

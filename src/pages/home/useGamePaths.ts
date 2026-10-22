@@ -10,6 +10,7 @@ import {
   saveCustomGamePaths,
   saveSelectedGamePath,
 } from "../../lib/api";
+import { describeError } from "../../lib/errors";
 import {
   CN360_DEFAULT_PATH,
   LESTA_DEFAULT_PATH,
@@ -44,20 +45,33 @@ export function useGamePaths(): UseGamePaths {
     null,
   );
 
-  const persistSelectedGamePath = useCallback((path: string) => {
-    void saveSelectedGamePath(path).catch(() => undefined);
-  }, []);
+  const persistSelectedGamePath = useCallback(
+    (path: string) => {
+      void saveSelectedGamePath(path).catch((error) => {
+        // 静默失败会让人以为保存成功、下次启动才发现没了，必须提示
+        console.error("保存选中的游戏路径失败", error);
+        toast.error(t("Status/SaveFailed", { 0: describeError(error) }));
+      });
+    },
+    [t],
+  );
 
-  const persistCustomGamePaths = useCallback((options: GamePathOption[]) => {
-    void saveCustomGamePaths(
-      options
-        .filter((option) => option.isCustom)
-        .map((option) => ({
-          displayName: option.displayName,
-          path: option.path,
-        })),
-    ).catch(() => undefined);
-  }, []);
+  const persistCustomGamePaths = useCallback(
+    (options: GamePathOption[]) => {
+      void saveCustomGamePaths(
+        options
+          .filter((option) => option.isCustom)
+          .map((option) => ({
+            displayName: option.displayName,
+            path: option.path,
+          })),
+      ).catch((error) => {
+        console.error("保存自定义游戏路径失败", error);
+        toast.error(t("Status/SaveFailed", { 0: describeError(error) }));
+      });
+    },
+    [t],
+  );
 
   // 载入游戏路径选项（预设 + 自定义），并恢复上次选择。
   useEffect(() => {

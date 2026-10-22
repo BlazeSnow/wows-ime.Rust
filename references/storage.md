@@ -29,7 +29,7 @@
 | --- | --- |
 | `display_name` | 显示名（目录名） |
 | `path` | 主键，完整路径 |
-| `created_at` / `updated_at` | 时间戳 |
+| `created_at` / `updated_at` | 时间戳，`DEFAULT CURRENT_TIMESTAMP` |
 
 ### `custom_input_methods`（自定义输入法）
 
@@ -37,13 +37,30 @@
 | --- | --- |
 | `display_name` | 主键，输入法名称 |
 | `category` | 分类，取值同 `ImeCategory` 名称 |
-| `created_at` / `updated_at` | 时间戳 |
+| `created_at` / `updated_at` | 时间戳，`DEFAULT CURRENT_TIMESTAMP` |
+
+## 表结构迁移
+
+早期版本建表时 `created_at` / `updated_at` 是 `NOT NULL` 但**没有默认值**，而写入语句只提供部分列，
+每次插入都会报 `NOT NULL constraint failed` —— 保存静默失败，用户看到的就是「重启后内容没了」。
+`CREATE TABLE IF NOT EXISTS` 不会改动已存在的表，因此：
+
+- 启动时 `ensure_timestamp_defaults` 检测这两张表的建表语句，缺默认值就**重建表并保留数据**；
+- 写入语句同时显式带上 `created_at` / `updated_at`，即使迁移没跑到也能写进去。
+
+两个措施是叠加的：任一生效即可避免丢数据。
 
 ## 写入语义
 
 - 简单设置：upsert。
 - 列表数据：**全量同步**——先 upsert 全部，再删除不在提交集合中的行。单条增删也走全量同步，前端始终提交完整列表。
 - 列表读取排序与原版一致：`ORDER BY updated_at, 主键`。
+
+## 保存失败必须让用户知道
+
+前端持久化失败**不得静默吞掉**。静默失败会让人以为保存成功，下次启动才发现没了——这是最难查的一类问题。
+`useGamePaths` / `useInputMethods` 里的保存调用统一：写 `console.error` 并弹 `Status/SaveFailed` 提示。
+（与原版「持久化异常不影响 UI」不冲突：UI 不崩，但要让用户看见。）
 
 ## 旧数据迁移
 

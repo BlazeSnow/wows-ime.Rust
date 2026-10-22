@@ -161,6 +161,28 @@ describe("HomePage 三步向导", () => {
     expect(traditional).toHaveAttribute("aria-checked", "false");
   });
 
+  it("保存自定义路径失败时给出错误提示", async () => {
+    const user = userEvent.setup();
+    const original = invokeMock.getMockImplementation();
+    invokeMock.mockImplementation(
+      async (cmd: string, args?: Record<string, unknown>) => {
+        if (cmd === "save_custom_game_paths") {
+          throw { code: "ErrorInternal", detail: "写入失败" };
+        }
+        return original?.(cmd, args);
+      },
+    );
+    openMock.mockResolvedValue("C:\\Games\\WoWS");
+
+    await renderHome();
+    await user.click(screen.getByRole("button", { name: "添加自定义路径" }));
+
+    // 静默失败会让人以为保存成功，必须有提示
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith("保存失败：写入失败");
+    });
+  });
+
   it("首步列出三个预设游戏路径并默认选中第一个", async () => {
     await renderHome();
 

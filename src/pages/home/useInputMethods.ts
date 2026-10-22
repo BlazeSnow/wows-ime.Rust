@@ -8,7 +8,7 @@ import {
   saveCustomInputMethods,
   scanInputMethods,
 } from "../../lib/api";
-import { formatWarning } from "../../lib/errors";
+import { formatWarning, describeError } from "../../lib/errors";
 import type { ImeItem } from "./types";
 
 /** 输入法列表相关的状态与操作。 */
@@ -54,16 +54,23 @@ export function useInputMethods(): UseInputMethods {
   // 第 2 步的扫描提示只报一次
   const scanNotified = useRef(false);
 
-  const persistCustomInputMethods = useCallback((items: ImeItem[]) => {
-    void saveCustomInputMethods(
-      items
-        .filter((item) => item.isCustom)
-        .map((item) => ({
-          displayName: item.displayName,
-          category: item.category,
-        })),
-    ).catch(() => undefined);
-  }, []);
+  const persistCustomInputMethods = useCallback(
+    (items: ImeItem[]) => {
+      void saveCustomInputMethods(
+        items
+          .filter((item) => item.isCustom)
+          .map((item) => ({
+            displayName: item.displayName,
+            category: item.category,
+          })),
+      ).catch((error) => {
+        // 静默失败会让人以为保存成功、下次启动才发现没了，必须提示
+        console.error("保存自定义输入法失败", error);
+        toast.error(t("Status/SaveFailed", { 0: describeError(error) }));
+      });
+    },
+    [t],
+  );
 
   // 载入已保存的自定义输入法，追加到扫描结果之后。
   const loadSavedCustomInputMethods = useCallback(async () => {

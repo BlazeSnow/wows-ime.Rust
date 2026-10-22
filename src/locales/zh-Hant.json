@@ -67,6 +67,7 @@
   "Status/WriteCanceled": "已取消寫入。",
   "Status/WriteSucceededWithCount": "寫入成功，共更新 {0} 個配置檔案。",
   "Status/WriteFailed": "寫入失敗：{0}",
+  "Status/SaveFailed": "保存失敗：{0}",
   "Status/OpenProjectWebsiteFailed": "開啟專案官網失敗。",
   "Status/OpenProjectRepositoryFailed": "開啟專案倉庫失敗。",
   "Status/ScanCompletedNoImeWithWarning": "掃描完成，未發現輸入法。TSF錯誤：{0}",

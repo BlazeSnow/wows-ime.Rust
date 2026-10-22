@@ -3,8 +3,8 @@
 ## 命令
 
 ```powershell
-cargo test           # 后端（src-tauri），当前 58 项
-pnpm test            # 前端（vitest），当前 46 项
+cargo test           # 后端（src-tauri），当前 60 项
+pnpm test            # 前端（vitest），当前 48 项
 pnpm check:locales   # 三语资源一致性
 ```
 
@@ -16,7 +16,7 @@ pnpm check:locales   # 三语资源一致性
 | --- | --- | --- |
 | `error.rs` | 4 | 错误码序列化形状（前端从 rejection 中读 `{ code }`，是对外契约） |
 | `state.rs` | 1 | 设置库路径 |
-| `storage/tests.rs` | 15 | 建表幂等、设置默认值与 upsert、自定义路径/输入法读写、全量同步的删除语义、同路径改名不新增、旧 `config.json` 迁移与改名、迁移只发生一次、`GameDir` 兜底、缺名用目录名、未知分类回退、缺名输入法跳过、坏 JSON 与非对象根不迁移且不删旧文件、MSIX LocalState 目录形状 |
+| `storage/tests.rs` | 17 | 建表幂等、设置默认值与 upsert、自定义路径/输入法读写、全量同步的删除语义、同路径改名不新增、旧 `config.json` 迁移与改名、迁移只发生一次、`GameDir` 兜底、缺名用目录名、未知分类回退、缺名输入法跳过、坏 JSON 与非对象根不迁移且不删旧文件、MSIX LocalState 目录形状 |
 | `gameconfig/tests.rs` | 14 | 空选择的三个空分组、分组顺序、每项三元素与 Tag、名称 XML 转义、每项归入自己的分组、数字版本目录筛选、缺 bin / 无数字目录 / 形似数字的文件、UTF-8 无 BOM 写入、多目标写入、已存在文件计数、写入失败定位到具体路径、两种游戏 exe |
 | `models.rs` | 7 | 分类字符串往返、未知分类回退、字段 camelCase 序列化、分类枚举名沿用原版、扫描结果与持久化模型的 JSON 往返、空警告字段不出现在 JSON 中 |
 | `scanner/tests.rs` | 10 | 目标语言 ID 过滤、语言 ID 与名称关键词推断分类、噪音项过滤、HRESULT 格式、同名候选取高置信度且大小写不敏感、通用失败警告码、panic 可捕获 |

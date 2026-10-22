@@ -16,6 +16,99 @@ fn initialize_is_idempotent() {
 }
 
 #[test]
+fn legacy_table_without_default_is_rebuilt_and_data_kept() {
+    let conn = Connection::open_in_memory().unwrap();
+    // 早期版本建表：created_at / updated_at 是 NOT NULL 但没有默认值
+    conn.execute_batch(
+        "CREATE TABLE custom_game_paths (
+             path         TEXT PRIMARY KEY,
+             display_name TEXT NOT NULL,
+             created_at   TEXT NOT NULL,
+             updated_at   TEXT NOT NULL
+         );",
+    )
+    .unwrap();
+
+    // 写入语句显式带上 created_at，旧结构下也能写进去（这正是丢数据的根因）
+    save_custom_game_paths(
+        &conn,
+        &[PersistedGamePath {
+            display_name: "新路径".to_string(),
+            path: "C:\\New".to_string(),
+        }],
+    )
+    .unwrap();
+    assert_eq!(load_custom_game_paths(&conn).len(), 1);
+
+    // 迁移保留数据：直接往旧表塞一行（绕开全量同步），再初始化
+    conn.execute(
+        "INSERT INTO custom_game_paths (path, display_name, created_at, updated_at)
+         VALUES ('C:\\Games', '旧路径', '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+        [],
+    )
+    .unwrap();
+
+    initialize(&conn).unwrap();
+    let loaded = load_custom_game_paths(&conn);
+    assert_eq!(loaded.len(), 2);
+    assert!(loaded.iter().any(|item| item.path == "C:\\Games"));
+
+    let ddl: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'custom_game_paths'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        ddl.to_uppercase().contains("DEFAULT"),
+        "重建后的表应带默认值: {ddl}"
+    );
+}
+
+#[test]
+fn legacy_input_method_table_without_default_is_rebuilt() {
+    let conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE custom_input_methods (
+             display_name TEXT PRIMARY KEY,
+             category     TEXT NOT NULL,
+             created_at   TEXT NOT NULL,
+             updated_at   TEXT NOT NULL
+         );
+         INSERT INTO custom_input_methods (display_name, category, created_at, updated_at)
+             VALUES ('旧输入法', 'Japanese', '2026-01-01 00:00:00', '2026-01-01 00:00:00');",
+    )
+    .unwrap();
+
+    save_custom_input_methods(
+        &conn,
+        &[PersistedInputMethod {
+            display_name: "新输入法".to_string(),
+            category: "Japanese".to_string(),
+        }],
+    )
+    .unwrap();
+
+    initialize(&conn).unwrap();
+    let loaded = load_custom_input_methods(&conn);
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].display_name, "新输入法");
+
+    let ddl: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'custom_input_methods'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(
+        ddl.to_uppercase().contains("DEFAULT"),
+        "重建后的表应带默认值: {ddl}"
+    );
+}
+
+#[test]
 fn setting_defaults_when_absent() {
     let conn = conn();
     assert_eq!(
