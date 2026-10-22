@@ -12,7 +12,7 @@
     ProcessorArchitecture="@ARCH@" />
 
   <Properties>
-    <DisplayName>战舰世界输入法配置工具</DisplayName>
+    <DisplayName>WOWS输入法工具</DisplayName>
     <PublisherDisplayName>BlazeSnow</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -33,7 +33,7 @@
       Executable="wows-ime.exe"
       EntryPoint="windows.fullTrustApplication">
       <uap:VisualElements
-        DisplayName="战舰世界输入法配置工具"
+        DisplayName="WOWS输入法工具"
         Description="战舰世界中文输入法配置工具"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Toaster } from "./components/ui/sonner";
@@ -14,8 +14,20 @@ const NAV_ITEMS: { key: PageKey; label: string }[] = [
 ];
 
 export default function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [page, setPage] = useState<PageKey>("home");
+
+  // 原生窗口标题跟随界面语言（应用名按微软商店政策 10.1.1 不得以所参照软件名称开头）
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await getCurrentWindow().setTitle(i18n.t("AppDisplayName"));
+      } catch {
+        // 非 Tauri 环境（前端测试）忽略
+      }
+    })();
+  }, [i18n, i18n.language]);
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">

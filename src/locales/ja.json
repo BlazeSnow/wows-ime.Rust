@@ -1,6 +1,6 @@
 {
-  "App/Title": "World of Warships IME設定ツール",
-  "AppDisplayName": "World of Warships IME設定ツール",
+  "App/Title": "WOWS用IMEツール",
+  "AppDisplayName": "WOWS用IMEツール",
   "AppDescription": "World of Warships 日本語入力設定ツール",
   "GameRootLabel.Text": "ゲームルートフォルダ",
   "GamePathSectionHint.Text": "プリセットパスを選択するか、カスタムパスを追加してください",

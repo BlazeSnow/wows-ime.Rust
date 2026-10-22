@@ -27,7 +27,7 @@
 
 1. 在 `package.json` 手动修改 `version`。
 2. 运行 `version.ps1` 把版本号同步到其余三处。
-3. 更新 `CHANGELOG.md`。
+3. 更新更新日志（`CHANGELOG.md` 已迁至官网 <https://wows.blazesnow.com/CHANGELOG>，本仓库只留跳转说明）。
 4. 提交改动。
 5. 运行 `tag.ps1`：校验各版本文件与 `package.json` 一致（不一致则拒绝），确认后打 tag 并推送，触发发布工作流。
 

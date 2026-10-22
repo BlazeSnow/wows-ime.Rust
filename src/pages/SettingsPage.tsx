@@ -69,7 +69,6 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t("Settings/LanguageLabel")}</CardTitle>
-          <CardDescription>{t("AppDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           <Label htmlFor="language-select">
