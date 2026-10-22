@@ -4,19 +4,15 @@
 
 .DESCRIPTION
   版本号只维护在仓库根目录的 package.json 中，避免多处手改导致不一致：
-    - version：软件版本（格式 X.Y.Z 或 X.Y.Z-beta.N，如 1.0.0、1.0.0-beta.1）
-    - msiVersion：Windows MSI 发布序列号（格式 X.Y.Z，固定 1.0.N，N 为第 N 次发布）
-    - baseVersion：目标版本线（格式 vX.Y.Z），供 tag.ps1 校验 version 基线
+    - version：软件版本（格式 X.Y.Z 或 X.Y.Z-beta.N，如 2026.10.20、1.0.0-beta.1）
+
+  本项目只发布到微软商店（msixbundle），不做 MSI 打包，因此没有 msiVersion，
+  也不写 tauri.conf.json 的 bundle.windows.wix.version。
 
   本脚本写入：
     - tauri.conf.json 的 version（应用版本）
-    - tauri.conf.json 的 bundle.windows.wix.version（MSI 版本，取 msiVersion）
     - src-tauri/Cargo.toml 中 [package] 段的 version（Rust 后端版本）
     - src-tauri/Cargo.lock 中根包的 version（保持锁文件一致）
-
-  msiVersion 独立于软件版本号的原因：MSI 版本比较只看前 3 段且不允许字母，
-  无法表达 beta 语义。用发布次数绑定序列号（1.0.N）即可单调递增：
-  历史 beta 的 MSI 版本为 1.0.0.x（比较值 1.0.0），1.0.N 高于它，旧版可直接覆盖升级。
 
   脚本只操作自身所在的目录，因此应复制到目标仓库根目录后运行。
   根包名从 Cargo.toml 的 [package] 段读取，无需随项目修改本脚本。
@@ -45,16 +41,7 @@ if (-not $version) {
     throw 'package.json 中缺少 version 字段。'
 }
 if ($version -notmatch '^\d+\.\d+\.\d+(-beta\.\d+)?$') {
-    throw "package.json 的 version 格式不正确：$version（应为 X.Y.Z 或 X.Y.Z-beta.N，例如 1.0.0、1.0.0-beta.1）"
-}
-
-# MSI 发布序列号：独立于软件版本，第 N 次发布为 1.0.N
-$msiVersion = $package.msiVersion
-if (-not $msiVersion) {
-    throw 'package.json 中缺少 msiVersion 字段。'
-}
-if ($msiVersion -notmatch '^\d+\.\d+\.\d+$') {
-    throw "package.json 的 msiVersion 格式不正确：$msiVersion（应为数字三段 X.Y.Z，例如 1.0.1）"
+    throw "package.json 的 version 格式不正确：$version（应为 X.Y.Z 或 X.Y.Z-beta.N，例如 2026.10.20、1.0.0-beta.1）"
 }
 
 # 2. 读取 Cargo.toml 的 [package] 段，取得根包名（Cargo.lock 中据此定位根包）
@@ -71,22 +58,18 @@ if ($packageSection.Value -notmatch '(?m)^version\s*=\s*"') {
     throw "未在 $CargoTomlPath 的 [package] 段中找到 version。"
 }
 
-# 3. 同步 tauri.conf.json 的 version 与 bundle.windows.wix.version
+# 3. 同步 tauri.conf.json 的 version
 $nodeScript = @'
 const fs = require('fs');
-const ver = process.argv[1], wix = process.argv[2];
+const ver = process.argv[1];
 const t = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 t.version = ver;
-t.bundle = t.bundle || {};
-t.bundle.windows = t.bundle.windows || {};
-t.bundle.windows.wix = t.bundle.windows.wix || {};
-t.bundle.windows.wix.version = wix;
 fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(t, null, 2) + String.fromCharCode(10));
 '@
 
 Push-Location $RepoRoot
 try {
-    node -e $nodeScript $version $msiVersion
+    node -e $nodeScript $version
     if ($LASTEXITCODE -ne 0) { throw '同步版本到 tauri.conf.json 失败' }
 }
 finally {
@@ -111,4 +94,4 @@ if (-not [regex]::IsMatch($lockText, $lockPattern)) {
 $newLock = [regex]::Replace($lockText, $lockPattern, ('${1}' + $version + '"'))
 [System.IO.File]::WriteAllText($CargoLockPath, $newLock, $utf8NoBom)
 
-Write-Host "已同步 tauri.conf.json / Cargo.toml / Cargo.lock（version=$version，wix.version=$msiVersion）"
+Write-Host "已同步 tauri.conf.json / Cargo.toml / Cargo.lock（version=$version）"

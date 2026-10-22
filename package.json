@@ -2,8 +2,6 @@
   "name": "wows-ime",
   "private": true,
   "version": "2026.10.20",
-  "msiVersion": "1.0.1",
-  "baseVersion": "v2026.10.20",
   "type": "module",
   "scripts": {
     "dev": "vite",

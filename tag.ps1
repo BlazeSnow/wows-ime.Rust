@@ -6,13 +6,19 @@
   仓库的 Release 工作流在推送 v* 格式的 tag 时自动打包并创建 Release
   （vX.Y.Z-beta.N 格式的 tag 会标为 Prerelease）。
   执行流程：
-    1. 检查项目版本文件是否符合 package.json（tauri.conf.json / Cargo.toml / Cargo.lock 的
-       version 必须一致，wix.version 必须等于 msiVersion，version 必须符合 baseVersion 基线）；
-       检查不通过则拒绝继续，提示先运行 version.ps1 同步。
-    2. 提示开发者确认已手动修改本次发布版本（version / msiVersion）——本脚本不做任何推断
-       和修改，tag 就是 v + package.json 的 version。
+    1. 检查项目版本文件是否符合 package.json（tauri.conf.json / Cargo.toml /
+       Cargo.lock 的 version 必须一致）；检查不通过则拒绝继续，提示先运行
+       version.ps1 同步。
+    2. 提示开发者确认已手动修改本次发布版本——本脚本不做任何推断和修改，
+       tag 就是 v + package.json 的 version。
     3. 检查本地与远程均不存在该 tag，确认后创建并推送。
   也可以用 -Tag 显式指定版本号（跳过一致性检查与版本确认）。
+
+  本项目只发布到微软商店（msixbundle），不做 MSI 打包，因此不涉及 msiVersion
+  与 bundle.windows.wix.version。
+
+  商店要求包版本为四段式 x.y.z.w：三段式版本（如日期式 2026.10.20）打 tag 时
+  自动补 .0，得到 v2026.10.20.0。
 
   脚本只操作自身所在的目录，因此应复制到目标仓库根目录后运行。
   根包名从 Cargo.toml 的 [package] 段读取，无需随项目修改本脚本。
@@ -48,19 +54,13 @@ Push-Location $RepoRoot
 try {
     # 0. 读取 package.json
     $pkg = Get-Content $PackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
-    $base = $pkg.baseVersion
-    if (-not $base -or $base -notmatch '^v\d+\.\d+\.\d+$') {
-        throw "package.json 的 baseVersion 缺失或格式不正确：$base（应为 vX.Y.Z，例如 v1.0.0）"
-    }
-    $ver3 = $base.Substring(1)
 
     # 1. 检查项目版本文件是否符合 package.json（-Tag 显式指定时跳过）
     if (-not $Tag) {
         $issues = @()
 
-        # version 必须符合 baseVersion 基线（1.0.0 或 1.0.0-beta.N）
-        if ($pkg.version -notmatch "^$([regex]::Escape($ver3))(-beta\.\d+)?$") {
-            $issues += "package.json 的 version $($pkg.version) 不符合 baseVersion 基线 $base"
+        if (-not $pkg.version) {
+            throw 'package.json 中缺少 version 字段。'
         }
 
         $tauri = Get-Content $TauriConfPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -90,17 +90,13 @@ try {
         if ($lockVer -ne $pkg.version) {
             $issues += "Cargo.lock 根包 $rootPackage 的 version $lockVer 与 package.json $($pkg.version) 不一致"
         }
-        $wix = $tauri.bundle.windows.wix.version
-        if ($wix -ne $pkg.msiVersion) {
-            $issues += "wix.version $wix 与 package.json 的 msiVersion $($pkg.msiVersion) 不一致"
-        }
 
         if ($issues.Count -gt 0) {
             Write-Host '项目版本文件与 package.json 不一致，拒绝打 tag：' -ForegroundColor Red
             foreach ($issue in $issues) { Write-Host "  - $issue" }
             throw '请先运行 version.ps1 同步版本文件（或手动修改）后再打 tag。'
         }
-        Write-Host "版本一致性检查通过：version=$($pkg.version)，msiVersion=$($pkg.msiVersion)"
+        Write-Host "版本一致性检查通过：version=$($pkg.version)"
     }
     else {
         Write-Host '已用 -Tag 显式指定版本，跳过版本一致性检查。'
@@ -115,12 +111,11 @@ try {
         }
         Write-Host ''
         Write-Host '当前版本配置：'
-        Write-Host "  baseVersion : $base（目标版本线）"
-        Write-Host "  version     : $($pkg.version)（本次将发布的版本）"
-        Write-Host "  msiVersion  : $($pkg.msiVersion)"
-        $confirm = Read-Host "请确认已手动修改 version / msiVersion 为本次发布的值？输入 y 继续（将打 tag $Tag），其他任意键取消"
+        Write-Host "  version : $($pkg.version)（本次将发布的版本）"
+        Write-Host "  tag     : $Tag"
+        $confirm = Read-Host "请确认已手动修改 version 为本次发布的值？输入 y 继续（将打 tag $Tag），其他任意键取消"
         if ($confirm -ne 'y' -and $confirm -ne 'Y') {
-            Write-Host '已取消。请先在 package.json 中手动修改 version / msiVersion，运行 version.ps1 同步后再执行本脚本。'
+            Write-Host '已取消。请先在 package.json 中手动修改 version，运行 version.ps1 同步后再执行本脚本。'
             return
         }
     }

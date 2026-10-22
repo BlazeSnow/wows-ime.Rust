@@ -24,7 +24,7 @@
 - 生成的 `ime_config.xml` 必须与原 WinUI 3 版本保持兼容（UTF-8 无 BOM），否则游戏无法识别；分组顺序为简体、日文、繁体
 - 输入法扫描依赖 TSF/COM（`ITfInputProcessorProfiles`），仅 Windows 可用，不得引入跨平台依赖
 - 用户数据迁移规则（`config.json` → SQLite + LocalSettings 等价物）见 [references/storage.md](references/storage.md)
-- 版本号只维护在根目录 `package.json`（`version` / `msiVersion` / `baseVersion`），其余位置一律由 `version.ps1` 同步
+- 版本号只维护在根目录 `package.json` 的 `version`，其余位置一律由 `version.ps1` 同步；仅发布微软商店，不涉及 MSI 相关字段
 - 用户可见文本零硬编码，新增文案需同步补齐全部语种
 
 ## 常用命令
