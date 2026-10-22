@@ -323,7 +323,11 @@ describe("HomePage 三步向导", () => {
         }),
       );
     });
-    expect(toastSuccess).toHaveBeenCalledWith("写入成功，共更新 1 个配置文件。");
+    // 成功提示与「游戏更新后需重新写入」的提醒合成一条 toast
+    expect(toastSuccess).toHaveBeenCalledWith(
+      "写入成功，共更新 1 个配置文件。游戏更新后需重新写入配置。",
+    );
+    expect(toastInfo).not.toHaveBeenCalled();
   });
 
   it("目标已有配置文件时改为覆盖确认", async () => {

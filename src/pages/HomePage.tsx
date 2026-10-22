@@ -117,6 +117,7 @@ export function HomePage() {
         gamePaths.selectedGamePath,
         definitions,
       );
+      // 成功提示与「游戏更新后需重新写入」的提醒合成一条，避免两条 toast 叠在一起
       toast.success(t("Status/WriteSucceededWithCount", { 0: written }));
       gamePaths.persistSelection(gamePaths.selectedGamePath);
       inputMethods.persistCustomInputMethods(inputMethods.inputMethods);

@@ -65,7 +65,7 @@
   "Status/GameExeNotFound": "選択したディレクトリに WorldOfWarships.exe または Korabli.exe が見つかりません。",
   "Status/BinVersionDirectoryNotFound": "ゲームディレクトリの bin フォルダ内にバージョン番号のディレクトリが見つかりません。",
   "Status/WriteCanceled": "書き込みをキャンセルしました。",
-  "Status/WriteSucceededWithCount": "書き込み成功。{0} 個の設定ファイルを更新しました。",
+  "Status/WriteSucceededWithCount": "書き込み成功。{0} 個の設定ファイルを更新しました。ゲーム更新後は再書き込みが必要です。",
   "Status/WriteFailed": "書き込みに失敗しました：{0}",
   "Status/SaveFailed": "保存に失敗しました：{0}",
   "Status/OpenProjectWebsiteFailed": "プロジェクト公式サイトを開けませんでした。",

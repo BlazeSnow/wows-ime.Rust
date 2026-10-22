@@ -65,7 +65,7 @@
   "Status/GameExeNotFound": "所選目錄未找到 WorldOfWarships.exe 或 Korabli.exe。",
   "Status/BinVersionDirectoryNotFound": "未在遊戲目錄的 bin 下找到數字版本目錄，無法確定寫入位置。",
   "Status/WriteCanceled": "已取消寫入。",
-  "Status/WriteSucceededWithCount": "寫入成功，共更新 {0} 個配置檔案。",
+  "Status/WriteSucceededWithCount": "寫入成功，共更新 {0} 個設定檔。遊戲更新後需重新寫入配置。",
   "Status/WriteFailed": "寫入失敗：{0}",
   "Status/SaveFailed": "保存失敗：{0}",
   "Status/OpenProjectWebsiteFailed": "開啟專案官網失敗。",
