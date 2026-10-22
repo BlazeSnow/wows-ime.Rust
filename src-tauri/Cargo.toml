@@ -31,8 +31,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 # TSF 输入法扫描：ITfInputProcessorProfiles 位于 Win32_UI_TextServices
+# 原生标题栏深色：DWMWA_USE_IMMERSIVE_DARK_MODE 位于 Win32_Graphics_Dwm
 windows = { version = "0.62", features = [
     "Win32_Foundation",
+    "Win32_Graphics_Dwm",
     "Win32_System_Com",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_TextServices",

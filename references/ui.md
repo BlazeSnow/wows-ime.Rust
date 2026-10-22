@@ -43,6 +43,15 @@
 
 「添加自定义输入法」用 `Dialog`（带输入框与分类下拉），取消与确定都显式给出。
 
+## 深色模式
+
+- 页面内容由 CSS 的 `prefers-color-scheme` 自动跟随系统，无需干预。
+- **原生标题栏**需要单独适配：WebView2 应用的标题栏按钮跟随「应用配色」而非系统配色，
+  所以 Rust 侧要用 `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` 显式设置。
+- **变更通知**来自系统广播 `WM_SETTINGCHANGE`（Tauri 的 `WindowEvent::ThemeChanged` 即由此触发），
+  是推送式通知，不是应用轮询。主题一变，标题栏配色与窗口底色立即跟着更新。
+- 启动时先按当前主题设置好标题栏与窗口底色（避免深色下加载瞬间白底闪烁），再显示窗口。
+
 ## 约定
 
 - 用户可见文案一律走 `t()`，不在组件里写死中文；新增文案必须同步补齐 `zh-Hans` / `zh-Hant` / `ja` 三份资源。

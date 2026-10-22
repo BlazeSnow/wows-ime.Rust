@@ -10,6 +10,7 @@ mod models;
 mod scanner;
 mod state;
 mod storage;
+mod theme;
 mod window;
 
 use state::AppState;
@@ -66,13 +67,13 @@ pub fn run() {
                 db: std::sync::Mutex::new(db),
             });
 
-            // 深色模式：按系统主题预设 WebView 底色，避免启动时白底闪烁
+            // 深色模式：按系统主题预设 WebView 底色与标题栏配色，避免启动时白底闪烁
             //（页面加载后配色由 CSS 的 prefers-color-scheme 接管）。
-            if let Some(window) = app.get_webview_window("main") {
-                let dark = window.theme().is_ok_and(|t| t == tauri::Theme::Dark);
-                let (r, g, b) = if dark { (0x0a, 0x0a, 0x0a) } else { (0xff, 0xff, 0xff) };
-                let _ = window.set_background_color(Some(tauri::window::Color(r, g, b, 0xff)));
-            }
+            let dark = app
+                .get_webview_window("main")
+                .and_then(|window| window.theme().ok())
+                .is_some_and(|theme| theme == tauri::Theme::Dark);
+            theme::apply_theme(app.handle(), dark);
 
             // 几何已由插件恢复（无状态则用默认值）：钳制到工作区后显示，
             // 期间窗口一直不可见，用户看到的即最终位置与尺寸。
@@ -84,6 +85,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // 主题变更：事件由系统广播 WM_SETTINGCHANGE 驱动（推送，不是轮询）。
+            if let tauri::WindowEvent::ThemeChanged(theme) = event {
+                theme::apply_theme(window.app_handle(), *theme == tauri::Theme::Dark);
+            }
             // 关闭前把用户调整的几何写盘（插件自动保存依赖应用退出事件，
             // 显式保存保证任何退出路径都有最新值）。
             if let tauri::WindowEvent::CloseRequested { .. } = event {

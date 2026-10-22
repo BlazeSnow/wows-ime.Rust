@@ -64,8 +64,17 @@
 - `productName` 与包身份 `BlazeSnow.WOWS-IME` 保持不变：前者决定二进制文件名，后者是商店里已登记的身份，不能随意改。
 - 原生窗口标题用 `getCurrentWindow().setTitle()` 在运行时跟随界面语言，需要在 `capabilities/default.json` 里放行 `core:window:allow-set-title`。
 
-### 依赖与索引镜像
+### 深色模式
 
+- 原生标题栏的深浅由 `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE)` 控制——
+  WebView2 应用的标题栏按钮跟随「应用配色」而非系统配色，必须显式设置。
+- 主题变更用 **系统通知**感知：Tauri 的 `WindowEvent::ThemeChanged` 由系统广播
+  `WM_SETTINGCHANGE` 驱动，是推送式的，应用不轮询。应用侧只做一件事——收到事件后
+  把新主题套用到标题栏与窗口底色。
+- 启动时用 `window.theme()` 取当前值（由 tao 读系统设置），先设好再显示窗口，避免深色下白底闪烁。
+- 页面内容无需干预：CSS 的 `prefers-color-scheme` 已经跟随系统。
+
+### 依赖与索引镜像
 - 本机直连 `index.crates.io:443` 会超时（`static.crates.io` 反而可达），因此 cargo 拉不到 crates.io 稀疏索引。已在 **cargo 全局配置**（`$CARGO_HOME/config.toml`）里配置 rsproxy 镜像做 source replacement：
 
   ```toml
