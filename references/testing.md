@@ -4,7 +4,7 @@
 
 ```powershell
 cargo test           # 后端（src-tauri），当前 60 项
-pnpm test            # 前端（vitest），当前 52 项
+pnpm test            # 前端（vitest），当前 53 项
 pnpm check:locales   # 三语资源一致性
 ```
 
@@ -38,7 +38,7 @@ pnpm check:locales   # 三语资源一致性
 | `lib/errors.test.ts` | 7 | 错误 detail 优先于错误码、无法识别的错误转字符串、警告码本地化与参数填充、资源缺失时回退原始警告码 |
 | `lib/api.test.ts` | 5 | 每个 Tauri 命令的调用名与参数结构、后端返回值的透传、后端拒绝时错误透传 |
 | `pages/HomePage.test.tsx` | 18 | 三步向导：预设路径与默认选中、切换路径即持久化、扫描结果入列、未勾选输入法被拦、勾选后第三步汇总、新增/覆盖两种写入确认、取消写入不落盘、缺游戏 exe 中止、空扫描结果带警告提示、添加自定义输入法、名称重复被拒 |
-| `pages/SettingsPage.test.tsx` | 9 | 版本号展示、项目链接入口、打开官网、切换语言即时生效并持久化 |
+| `pages/SettingsPage.test.tsx` | 10 | 版本号展示、项目链接入口、打开官网、切换语言即时生效并持久化 |
 | App.test.tsx | 3 | 应用外壳：侧边栏图标、切换到设置页、原生窗口标题取自 AppDisplayName |
 
 ### 测试写法约定

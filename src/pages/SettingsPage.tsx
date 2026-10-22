@@ -1,5 +1,6 @@
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useEffect, useState } from "react";
+import { GitBranch, Globe, Info, Languages, type LucideIcon } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -37,6 +38,24 @@ const LANGUAGE_LABELS: Record<string, string> = {
   [LANGUAGE_JA]: "日本語",
 };
 
+/** 带图标的卡片标题。图标对读屏隐藏，名称由标题文字提供。 */
+function IconCardTitle({
+  icon: Icon,
+  id,
+  children,
+}: {
+  icon: LucideIcon;
+  id?: string;
+  children: ReactNode;
+}) {
+  return (
+    <CardTitle id={id} className="flex items-center gap-2">
+      <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+      {children}
+    </CardTitle>
+  );
+}
+
 /** 设置页：界面语言切换、软件版本与项目链接。 */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
@@ -70,9 +89,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           {/* 卡片标题同时作为下拉框的可访问名称，不再另立一个同名 label */}
-          <CardTitle id="language-setting-title">
+          <IconCardTitle icon={Languages} id="language-setting-title">
             {t("Settings/LanguageLabel")}
-          </CardTitle>
+          </IconCardTitle>
           <CardDescription>{t("Settings/LanguageHint")}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -102,7 +121,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("AppVersionCardHeader.Text")}</CardTitle>
+          <IconCardTitle icon={Info}>
+            {t("AppVersionCardHeader.Text")}
+          </IconCardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           {version}
@@ -111,7 +132,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("ProjectWebsiteCardHeader.Text")}</CardTitle>
+          <IconCardTitle icon={Globe}>
+            {t("ProjectWebsiteCardHeader.Text")}
+          </IconCardTitle>
           <CardDescription>{PROJECT_WEBSITE}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,7 +154,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("ProjectRepositoryCardHeader.Text")}</CardTitle>
+          <IconCardTitle icon={GitBranch}>
+            {t("ProjectRepositoryCardHeader.Text")}
+          </IconCardTitle>
           <CardDescription>{PROJECT_REPOSITORY}</CardDescription>
         </CardHeader>
         <CardContent>

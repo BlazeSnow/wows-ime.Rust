@@ -66,6 +66,18 @@ describe("SettingsPage", () => {
     expect(screen.getByLabelText("语言")).toBeInTheDocument();
   });
 
+  it("四张卡片标题都带图标", async () => {
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("软件版本")).toBeInTheDocument();
+    });
+    for (const title of ["语言", "软件版本", "项目官网", "项目仓库"]) {
+      const heading = screen.getByText(title);
+      expect(heading.querySelector("svg"), `${title} 卡片应带图标`).not.toBeNull();
+    }
+  });
+
   it("展示项目官网与仓库入口", async () => {
     render(<SettingsPage />);
 
