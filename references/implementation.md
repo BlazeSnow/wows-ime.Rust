@@ -41,9 +41,21 @@
 - 原版的兜底 `catch (Exception)` 对应本版的 `Tsf/GenericException`：扫描命令用 `catch_unwind` 捕获未预期的 panic，转成该警告码，保证「扫描异常不中断界面」。
 - **因此 release profile 不能用 `panic = "abort"`**：abort 模式下 `catch_unwind` 失效，panic 会直接终止进程，该保证形同虚设。`Cargo.toml` 的 release profile 保留 `panic = "unwind"`，并由 `panic_is_catchable_in_this_profile` 用例（需用 `cargo test --release` 运行）守住这条约束。
 
-### 依赖与离线构建
+### 依赖与索引镜像
 
-- 本机 crates.io 索引更新会长时间挂起，`cargo build --offline` 可用（本地已有完整缓存）。新增依赖时优先选已在缓存中的版本。
+- 本机直连 `index.crates.io:443` 会超时（`static.crates.io` 反而可达），因此 cargo 拉不到 crates.io 稀疏索引。已在 **cargo 全局配置**（`$CARGO_HOME/config.toml`）里配置 rsproxy 镜像做 source replacement：
+
+  ```toml
+  [source.crates-io]
+  replace-with = 'rsproxy-sparse'
+  [source.rsproxy-sparse]
+  registry = "sparse+https://rsproxy.cn/index/"
+  ```
+
+  这属于**机器级网络配置**，不进仓库——CI 与其它机器不需要，且镜像同步有延迟。
+- 注意 cargo 只读 `$CARGO_HOME/config.toml`。若本机 `CARGO_HOME` 与用户目录不一致（例如 scoop 装 Rust 时指向 `D:\...\rustup\.cargo`），写进 `C:\Users\<用户>\.cargo\` 是不生效的。
+- 镜像配好后 `cargo update` / `cargo build` 均可正常联网执行；`cargo update` 会先拉一次索引，约十几秒。
+- 排查手段：直接用 TCP 探活（`Test-NetConnection index.crates.io -Port 443`）比 cargo 的报错更能定位是网络不通还是 cargo 配置问题。
 
 ## M3 · 前端
 
