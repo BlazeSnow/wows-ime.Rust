@@ -210,7 +210,12 @@ describe("HomePage 三步向导", () => {
       expect(screen.getByText("第 3 步，共 3 步")).toBeInTheDocument();
     });
     expect(screen.getByText("已选输入法")).toBeInTheDocument();
-    expect(screen.getByText(/1\. 微软拼音/)).toBeInTheDocument();
+    // 第 3 步用表格展示：序号与名称分属两列
+    expect(screen.getByRole("cell", { name: "1" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "微软拼音" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("cell", { name: "中文简体" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("C:\\Program Files (x86)\\Steam\\steamapps\\common\\World of Warships")).toBeInTheDocument();
   });
 
