@@ -369,6 +369,75 @@ mod tests {
     }
 
     #[test]
+    fn format_hresult_uses_fixed_width_hex() {
+        assert_eq!(format_hresult(0), "0x00000000");
+        assert_eq!(format_hresult(-1), "0xFFFFFFFF");
+        assert_eq!(format_hresult(0x80010106u32 as i32), "0x80010106");
+    }
+
+    #[test]
+    fn upsert_keeps_the_higher_confidence_for_the_same_name() {
+        let mut candidates = BTreeMap::new();
+        upsert_candidate(
+            &mut candidates,
+            ScannedImeCandidate {
+                display_name: "微软拼音".to_string(),
+                category: ImeCategory::ChineseSimplified,
+                confidence: 10,
+            },
+        );
+        upsert_candidate(
+            &mut candidates,
+            ScannedImeCandidate {
+                display_name: "微软拼音".to_string(),
+                category: ImeCategory::ChineseTraditional,
+                confidence: 20,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates.values().next().unwrap().category,
+            ImeCategory::ChineseTraditional
+        );
+
+        // 置信度更低的结果不应覆盖
+        upsert_candidate(
+            &mut candidates,
+            ScannedImeCandidate {
+                display_name: "微软拼音".to_string(),
+                category: ImeCategory::Japanese,
+                confidence: 1,
+            },
+        );
+        assert_eq!(
+            candidates.values().next().unwrap().category,
+            ImeCategory::ChineseTraditional
+        );
+    }
+
+    #[test]
+    fn upsert_treats_names_case_insensitively() {
+        let mut candidates = BTreeMap::new();
+        upsert_candidate(
+            &mut candidates,
+            ScannedImeCandidate {
+                display_name: "MS Pinyin".to_string(),
+                category: ImeCategory::ChineseSimplified,
+                confidence: 10,
+            },
+        );
+        upsert_candidate(
+            &mut candidates,
+            ScannedImeCandidate {
+                display_name: "ms pinyin".to_string(),
+                category: ImeCategory::ChineseSimplified,
+                confidence: 10,
+            },
+        );
+        assert_eq!(candidates.len(), 1);
+    }
+
+    #[test]
     fn panic_is_catchable_in_this_profile() {
         // release profile 必须保留 unwind：panic = "abort" 会让 catch_unwind 失效，
         // 扫描异常将直接终止进程，违背「扫描异常不中断界面」的约定。

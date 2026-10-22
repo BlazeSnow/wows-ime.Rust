@@ -41,6 +41,12 @@
 - 原版的兜底 `catch (Exception)` 对应本版的 `Tsf/GenericException`：扫描命令用 `catch_unwind` 捕获未预期的 panic，转成该警告码，保证「扫描异常不中断界面」。
 - **因此 release profile 不能用 `panic = "abort"`**：abort 模式下 `catch_unwind` 失效，panic 会直接终止进程，该保证形同虚设。`Cargo.toml` 的 release profile 保留 `panic = "unwind"`，并由 `panic_is_catchable_in_this_profile` 用例（需用 `cargo test --release` 运行）守住这条约束。
 
+### 语言模式
+
+- 新增 `language.rs`，对应原 WinUI 3 版的 `Rules/LanguageRules.cs`：语言模式只有 `auto` / `zh-Hans` / `zh-Hant` / `ja` 四种取值。
+- 写库前先归一化（`set_setting` 遇到 `Settings.Language` 走 `normalize_mode`），读取时校验（`get_language_preference` 遇到非法值回退 `auto`），与原版 `SaveLanguageMode` / `LoadLanguageMode` 的语义一致。
+- 显示语言的推断留在前端（用 `navigator.languages`），后端只负责存取与校验。
+
 ### 依赖与索引镜像
 
 - 本机直连 `index.crates.io:443` 会超时（`static.crates.io` 反而可达），因此 cargo 拉不到 crates.io 稀疏索引。已在 **cargo 全局配置**（`$CARGO_HOME/config.toml`）里配置 rsproxy 镜像做 source replacement：

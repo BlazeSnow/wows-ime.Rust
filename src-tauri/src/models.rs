@@ -47,7 +47,9 @@ pub struct ScannedImeCandidate {
 #[serde(rename_all = "camelCase")]
 pub struct InputMethodScanResult {
     pub candidates: Vec<ScannedImeCandidate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub warning_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub warning_arguments: Option<Vec<String>>,
 }
 
@@ -106,5 +108,75 @@ mod tests {
         };
         let json = serde_json::to_string(&definition).unwrap();
         assert!(json.contains("\"displayName\""), "{json}");
+    }
+
+    #[test]
+    fn category_serializes_with_original_names() {
+        assert_eq!(
+            serde_json::to_string(&ImeCategory::ChineseSimplified).unwrap(),
+            "\"ChineseSimplified\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ImeCategory::ChineseTraditional).unwrap(),
+            "\"ChineseTraditional\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ImeCategory::Japanese).unwrap(),
+            "\"Japanese\""
+        );
+    }
+
+    #[test]
+    fn scan_result_round_trips_through_json() {
+        let result = InputMethodScanResult {
+            candidates: vec![ScannedImeCandidate {
+                display_name: "微软拼音".to_string(),
+                category: ImeCategory::ChineseSimplified,
+                confidence: 10,
+            }],
+            warning_code: Some("Tsf/GenericException".to_string()),
+            warning_arguments: Some(vec!["boom".to_string()]),
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"warningCode\""), "{json}");
+        assert!(json.contains("\"warningArguments\""), "{json}");
+        assert!(json.contains("\"displayName\""), "{json}");
+
+        let parsed: InputMethodScanResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.candidates.len(), 1);
+        assert_eq!(parsed.candidates[0].category, ImeCategory::ChineseSimplified);
+        assert_eq!(parsed.warning_code.as_deref(), Some("Tsf/GenericException"));
+    }
+
+    #[test]
+    fn persisted_models_round_trip_through_json() {
+        let path = PersistedGamePath {
+            display_name: "Steam".to_string(),
+            path: "C:\\Steam".to_string(),
+        };
+        let json = serde_json::to_string(&path).unwrap();
+        assert!(json.contains("\"displayName\""), "{json}");
+        let parsed: PersistedGamePath = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.path, "C:\\Steam");
+
+        let method = PersistedInputMethod {
+            display_name: "自定义".to_string(),
+            category: "Japanese".to_string(),
+        };
+        let json = serde_json::to_string(&method).unwrap();
+        let parsed: PersistedInputMethod = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.category, "Japanese");
+    }
+
+    #[test]
+    fn scan_result_without_warning_omits_the_fields() {
+        let result = InputMethodScanResult {
+            candidates: Vec::new(),
+            warning_code: None,
+            warning_arguments: None,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(!json.contains("warningCode"), "{json}");
     }
 }

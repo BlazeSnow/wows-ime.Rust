@@ -5,6 +5,7 @@
 mod commands;
 mod error;
 mod gameconfig;
+mod language;
 mod models;
 mod scanner;
 mod state;

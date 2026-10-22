@@ -57,6 +57,7 @@ import {
   saveSelectedGamePath,
   writeConfigFiles,
 } from "../lib/api";
+import { describeError, formatWarning } from "../lib/errors";
 
 const STEAM_DEFAULT_PATH =
   "C:\\Program Files (x86)\\Steam\\steamapps\\common\\World of Warships";
@@ -795,29 +796,4 @@ function AddInputMethodDialog({
   );
 }
 
-/** 扫描警告码格式化：优先用本地化文案，否则回退原始警告码。 */
-function formatWarning(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  code: string,
-  args: string[] | null,
-): string {
-  const values = args ?? [];
-  const options: Record<string, unknown> = {};
-  values.forEach((value, index) => {
-    options[index] = value;
-  });
-  const translated = t(code, options);
-  return translated === code ? code : translated;
-}
-
-/** 提取后端错误信息：优先用可读的 detail，其次才回退到错误码。 */
-function describeError(error: unknown): string {
-  if (typeof error === "string") {
-    return error;
-  }
-  if (error && typeof error === "object" && "code" in error) {
-    const detail = (error as { detail?: unknown }).detail;
-    return detail ? String(detail) : String((error as { code: unknown }).code);
-  }
-  return String(error);
-}
+/** 扫描警告码格式化与错误提取已抽到 `src/lib/errors.ts`，便于单独测试。 */

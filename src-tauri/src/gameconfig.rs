@@ -262,4 +262,139 @@ mod tests {
 
         let _ = fs::remove_dir_all(&temp);
     }
+
+    #[test]
+    fn has_game_executable_also_accepts_russian_client_exe() {
+        let temp = std::env::temp_dir().join("wows-ime-korabli-test");
+        let _ = fs::remove_dir_all(&temp);
+        fs::create_dir_all(&temp).unwrap();
+        fs::write(temp.join("Korabli.exe"), b"").unwrap();
+        assert!(has_game_executable(temp.to_str().unwrap()));
+
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn empty_or_missing_game_root_has_no_targets_and_no_exe() {
+        assert!(!has_game_executable(""));
+        assert!(!has_game_executable("   "));
+        assert!(resolve_target_config_files("").is_empty());
+
+        let missing = std::env::temp_dir().join("wows-ime-missing-root");
+        let _ = fs::remove_dir_all(&missing);
+        assert!(resolve_target_config_files(missing.to_str().unwrap()).is_empty());
+    }
+
+    #[test]
+    fn resolve_returns_nothing_when_bin_has_no_numeric_version_dir() {
+        let temp = std::env::temp_dir().join("wows-ime-no-version-test");
+        let _ = fs::remove_dir_all(&temp);
+        fs::create_dir_all(temp.join("bin").join("patch")).unwrap();
+        // 形似版本号但其实是文件的条目也要排除
+        fs::write(temp.join("bin").join("12345"), b"").unwrap();
+
+        assert!(resolve_target_config_files(temp.to_str().unwrap()).is_empty());
+
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn each_input_method_lands_in_its_own_group() {
+        let document = build_config_document(&[
+            definition("微软拼音", ImeCategory::ChineseSimplified),
+            definition("Microsoft 日本語", ImeCategory::Japanese),
+            definition("微軟速成", ImeCategory::ChineseTraditional),
+        ]);
+
+        let simplified = document
+            .split("<ChineseSimplified>")
+            .nth(1)
+            .unwrap()
+            .split("</ChineseSimplified>")
+            .next()
+            .unwrap();
+        let japanese = document
+            .split("<Japanese>")
+            .nth(1)
+            .unwrap()
+            .split("</Japanese>")
+            .next()
+            .unwrap();
+        let traditional = document
+            .split("<ChineseTraditional>")
+            .nth(1)
+            .unwrap()
+            .split("</ChineseTraditional>")
+            .next()
+            .unwrap();
+
+        assert!(simplified.contains("微软拼音"), "{document}");
+        assert!(!simplified.contains("微軟速成"), "{document}");
+        assert!(japanese.contains("Microsoft 日本語"), "{document}");
+        assert!(!japanese.contains("微软拼音"), "{document}");
+        assert!(traditional.contains("微軟速成"), "{document}");
+        assert!(!traditional.contains("Microsoft 日本語"), "{document}");
+    }
+
+    #[test]
+    fn write_covers_every_target_file() {
+        let temp = std::env::temp_dir().join("wows-ime-multi-write-test");
+        let _ = fs::remove_dir_all(&temp);
+        let targets = vec![
+            temp.join("bin").join("1").join("res_mods").join("ime_config.xml"),
+            temp.join("bin").join("2").join("res_mods").join("ime_config.xml"),
+        ];
+
+        write_config_files(
+            &targets,
+            &[definition("微软拼音", ImeCategory::ChineseSimplified)],
+        )
+        .unwrap();
+
+        for target in &targets {
+            assert!(target.is_file(), "{} 应已写入", target.display());
+            let text = fs::read_to_string(target).unwrap();
+            assert!(text.contains("微软拼音"), "{text}");
+        }
+        assert_eq!(count_existing_files(&targets), 2);
+
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn count_existing_files_counts_only_present_files() {
+        let temp = std::env::temp_dir().join("wows-ime-count-test");
+        let _ = fs::remove_dir_all(&temp);
+        let present = temp.join("ime_config.xml");
+        let absent = temp.join("other.xml");
+        fs::create_dir_all(&temp).unwrap();
+        fs::write(&present, b"<data />").unwrap();
+
+        assert_eq!(count_existing_files(&[present.clone(), absent]), 1);
+        assert_eq!(count_existing_files(&[]), 0);
+
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn write_failure_reports_the_offending_path() {
+        let temp = std::env::temp_dir().join("wows-ime-write-fail-test");
+        let _ = fs::remove_dir_all(&temp);
+        // 把 res_mods 建成文件，导致创建目录失败
+        let blocker = temp.join("bin").join("1").join("res_mods");
+        fs::create_dir_all(blocker.parent().unwrap()).unwrap();
+        fs::write(&blocker, b"not a directory").unwrap();
+
+        let target = blocker.join("ime_config.xml");
+        let failure = write_config_files(
+            std::slice::from_ref(&target),
+            &[definition("微软拼音", ImeCategory::ChineseSimplified)],
+        )
+        .expect_err("应写入失败");
+
+        assert_eq!(failure.path, target);
+        assert!(failure.to_string().contains("res_mods"), "{failure}");
+
+        let _ = fs::remove_dir_all(&temp);
+    }
 }

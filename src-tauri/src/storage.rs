@@ -29,8 +29,6 @@ pub const SETTING_SELECTED_GAME_PATH: &str = "Game.SelectedPath";
 pub const SETTING_SCHEMA_VERSION: &str = "Settings.SchemaVersion";
 /// 当前配置结构版本。
 pub const CURRENT_SCHEMA_VERSION: &str = "1";
-/// 语言模式默认值：跟随系统。
-pub const LANGUAGE_AUTO: &str = "auto";
 
 /// 打开设置库；文件不存在时创建。
 pub fn open(db_path: &Path) -> rusqlite::Result<Connection> {
@@ -345,7 +343,10 @@ mod tests {
     #[test]
     fn setting_defaults_when_absent() {
         let conn = conn();
-        assert_eq!(get_setting(&conn, SETTING_LANGUAGE, LANGUAGE_AUTO), "auto");
+        assert_eq!(
+            get_setting(&conn, SETTING_LANGUAGE, crate::language::AUTOMATIC),
+            "auto"
+        );
     }
 
     #[test]
@@ -438,5 +439,155 @@ mod tests {
         // 迁移只发生一次
         assert!(!migrate_legacy_config_json(&conn, &dir));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn saving_same_path_updates_its_display_name() {
+        let conn = conn();
+        save_custom_game_paths(
+            &conn,
+            &[PersistedGamePath {
+                display_name: "旧名称".to_string(),
+                path: "C:\\Games".to_string(),
+            }],
+        )
+        .unwrap();
+        save_custom_game_paths(
+            &conn,
+            &[PersistedGamePath {
+                display_name: "新名称".to_string(),
+                path: "C:\\Games".to_string(),
+            }],
+        )
+        .unwrap();
+
+        let loaded = load_custom_game_paths(&conn);
+        assert_eq!(loaded.len(), 1, "同一路径应被更新而不是新增");
+        assert_eq!(loaded[0].display_name, "新名称");
+    }
+
+    #[test]
+    fn legacy_game_dir_is_used_when_selected_game_path_is_absent() {
+        let conn = conn();
+        let dir = std::env::temp_dir().join("wows-ime-legacy-gamedir-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(LEGACY_CONFIG_FILE_NAME),
+            r#"{ "GameDir": "C:\\Games\\Legacy" }"#,
+        )
+        .unwrap();
+
+        assert!(migrate_legacy_config_json(&conn, &dir));
+        assert_eq!(
+            get_setting(&conn, SETTING_SELECTED_GAME_PATH, ""),
+            "C:\\Games\\Legacy"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn legacy_game_path_without_name_uses_directory_name() {
+        let conn = conn();
+        let dir = std::env::temp_dir().join("wows-ime-legacy-noname-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(LEGACY_CONFIG_FILE_NAME),
+            r#"{ "GamePaths": [ { "Path": "C:\\Games\\WoWS" } ] }"#,
+        )
+        .unwrap();
+
+        assert!(migrate_legacy_config_json(&conn, &dir));
+        let loaded = load_custom_game_paths(&conn);
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].display_name, "WoWS");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn legacy_unknown_category_falls_back_to_simplified() {
+        let conn = conn();
+        let dir = std::env::temp_dir().join("wows-ime-legacy-category-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(LEGACY_CONFIG_FILE_NAME),
+            r#"{ "Ime": [ { "Name": "未知分类", "Category": "Klingon" } ] }"#,
+        )
+        .unwrap();
+
+        assert!(migrate_legacy_config_json(&conn, &dir));
+        assert_eq!(load_custom_input_methods(&conn)[0].category, "ChineseSimplified");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn legacy_input_method_without_name_is_skipped() {
+        let conn = conn();
+        let dir = std::env::temp_dir().join("wows-ime-legacy-noname-ime-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(LEGACY_CONFIG_FILE_NAME),
+            r#"{ "Ime": [ { "Category": "Japanese" }, { "Name": "有名字", "Category": "Japanese" } ] }"#,
+        )
+        .unwrap();
+
+        assert!(migrate_legacy_config_json(&conn, &dir));
+        let loaded = load_custom_input_methods(&conn);
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].display_name, "有名字");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn malformed_legacy_config_is_left_untouched() {
+        let conn = conn();
+        let dir = std::env::temp_dir().join("wows-ime-legacy-broken-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let broken = dir.join(LEGACY_CONFIG_FILE_NAME);
+        std::fs::write(&broken, "{ 这不是合法 JSON").unwrap();
+
+        assert!(!migrate_legacy_config_json(&conn, &dir));
+        assert!(broken.is_file(), "解析失败时不应改名或删除旧文件");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn legacy_config_with_non_object_root_is_ignored() {
+        let conn = conn();
+        let dir = std::env::temp_dir().join("wows-ime-legacy-array-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(LEGACY_CONFIG_FILE_NAME), r#"[1, 2, 3]"#).unwrap();
+
+        assert!(!migrate_legacy_config_json(&conn, &dir));
+        assert!(load_custom_game_paths(&conn).is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn legacy_local_state_dir_points_at_msix_package_folder() {
+        let Some(dir) = legacy_local_state_dir() else {
+            // 无 LOCALAPPDATA 的环境（如 CI 的某些沙箱）跳过断言
+            return;
+        };
+        let expected = Path::new("Packages")
+            .join(LEGACY_PACKAGE_FAMILY_NAME)
+            .join("LocalState");
+        assert!(
+            dir.ends_with(&expected),
+            "{} 应以 {} 结尾",
+            dir.display(),
+            expected.display()
+        );
     }
 }
