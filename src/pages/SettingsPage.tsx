@@ -71,6 +71,7 @@ export function SettingsPage() {
           <CardTitle id="language-setting-title">
             {t("Settings/LanguageLabel")}
           </CardTitle>
+          <CardDescription>{t("Settings/LanguageHint")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Select

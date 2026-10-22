@@ -81,6 +81,7 @@
   "Nav/Home": "主页",
   "Nav/Settings": "设置",
   "Settings/LanguageLabel": "语言",
+  "Settings/LanguageHint": "切换后立即生效，无需重启应用",
   "Settings/Automatic": "自动",
   "Settings/Restart/Title": "重启应用",
   "Settings/Restart/Content": "语言更改将在重启后生效，是否立即重启？",
