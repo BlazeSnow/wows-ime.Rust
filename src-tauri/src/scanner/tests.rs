@@ -73,6 +73,16 @@ fn noise_names_are_filtered() {
 }
 
 #[test]
+fn empty_language_list_is_reported_like_the_original_version() {
+    // 原 WinUI 3 版在 GetLanguageList 返回长度为 0 时同样给出「空语言列表」警告。
+    assert_eq!(
+        empty_language_list_warning_code(0),
+        Some(GET_LANGUAGE_LIST_EMPTY_WARNING)
+    );
+    assert_eq!(empty_language_list_warning_code(1), None);
+}
+
+#[test]
 fn generic_failure_carries_stable_warning_code() {
     let result = generic_failure();
     assert_eq!(result.warning_code.as_deref(), Some(GENERIC_EXCEPTION_WARNING));

@@ -3,7 +3,7 @@
 ## 命令
 
 ```powershell
-cargo test           # 后端（src-tauri），当前 64 项
+cargo test           # 后端（src-tauri），当前 65 项
 pnpm test            # 前端（vitest），当前 53 项
 pnpm check:locales   # 三语资源一致性
 ```

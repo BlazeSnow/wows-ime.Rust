@@ -126,6 +126,11 @@ fn collect_candidates(candidates: &mut Vec<ScannedImeCandidate>) -> InputMethodS
     };
     unsafe { CoTaskMemFree(Some(language_ids_ptr.cast())) };
 
+    // 语言列表为空时给出警告（与原 WinUI 3 版一致）；数组仍需释放，不能提前返回。
+    if let Some(code) = empty_language_list_warning_code(language_count) {
+        return warning(std::mem::take(candidates), code, Vec::new());
+    }
+
     if let Some(hresult) = com_error {
         return warning(
             std::mem::take(candidates),
@@ -278,6 +283,18 @@ fn infer_category_from_name(name: &str) -> Option<ImeCategory> {
         return Some(ImeCategory::ChineseSimplified);
     }
     None
+}
+
+/// 语言列表为空时返回警告码。
+///
+/// 与原 WinUI 3 版一致：`GetLanguageList` 返回长度为 0 时同样视为空列表，
+/// 此时数组仍需释放，因此判定放在释放之后。
+fn empty_language_list_warning_code(language_count: u32) -> Option<&'static str> {
+    if language_count == 0 {
+        Some(GET_LANGUAGE_LIST_EMPTY_WARNING)
+    } else {
+        None
+    }
 }
 
 fn warning(

@@ -62,3 +62,5 @@
 - COM 调用必须成对：`CoInitializeEx` 成功后必须 `CoUninitialize`。
 - `GetLanguageList` 返回的语言 ID 数组由 COM 分配，用完必须 `CoTaskMemFree` 释放
   （原 WinUI 3 版在 `finally` 里释放，本移植版同样在遍历结束后释放，避免每次扫描泄漏）。
+- 「语言列表为空」的判定与原版一致：返回空指针**或**长度为 0 都算空，返回 `Tsf/GetLanguageListEmpty`；
+  但判定必须放在数组释放之后，否则空列表分支会重新引入泄漏。
