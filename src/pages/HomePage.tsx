@@ -1,6 +1,4 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -14,416 +12,61 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import { Checkbox } from "../components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { Separator } from "../components/ui/separator";
 import {
-  type ImeCategory,
   type InputMethodDefinition,
   existingConfigCount,
-  getSelectedGamePath,
   hasGameExecutable,
-  listCustomGamePaths,
-  listCustomInputMethods,
   resolveTargetConfigFiles,
-  saveCustomGamePaths,
-  saveCustomInputMethods,
-  scanInputMethods,
-  saveSelectedGamePath,
   writeConfigFiles,
 } from "../lib/api";
-import { describeError, formatWarning } from "../lib/errors";
+import { describeError } from "../lib/errors";
+import { AddInputMethodDialog } from "./home/AddInputMethodDialog";
+import { ConfirmStep } from "./home/ConfirmStep";
+import {
+  DeleteGamePathDialog,
+  DeleteInputMethodDialog,
+} from "./home/DeleteDialogs";
+import { GamePathStep } from "./home/GamePathStep";
+import { InputMethodStep } from "./home/InputMethodStep";
+import { TOTAL_STEPS } from "./home/constants";
+import { useGamePaths } from "./home/useGamePaths";
+import { useInputMethods } from "./home/useInputMethods";
 
-const STEAM_DEFAULT_PATH =
-  "C:\\Program Files (x86)\\Steam\\steamapps\\common\\World of Warships";
-const LESTA_DEFAULT_PATH = "C:\\Games\\Korabli";
-const CN360_DEFAULT_PATH = "C:\\Games\\World_of_Warships_CN360";
-const TOTAL_STEPS = 3;
-
-const CATEGORY_KEYS: Record<ImeCategory, string> = {
-  ChineseSimplified: "Category/ChineseSimplified",
-  ChineseTraditional: "Category/ChineseTraditional",
-  Japanese: "Category/Japanese",
-};
-
-interface GamePathOption {
-  displayName: string;
-  path: string;
-  isCustom: boolean;
-}
-
-interface ImeItem {
-  displayName: string;
-  category: ImeCategory;
-  isCustom: boolean;
-  isSelected: boolean;
+/** 写入前的确认信息：已有多少个配置文件、将新增多少个。 */
+interface WriteConfirm {
+  open: boolean;
+  existing: number;
+  total: number;
 }
 
 /** 主页面：游戏路径 → 输入法选择 → 确认写入 三步向导。 */
 export function HomePage() {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
-  const [gamePaths, setGamePaths] = useState<GamePathOption[]>([]);
-  const [selectedGamePath, setSelectedGamePath] = useState("");
-  const [inputMethods, setInputMethods] = useState<ImeItem[]>([]);
-  const [pendingDeletion, setPendingDeletion] = useState<GamePathOption | null>(
-    null,
-  );
-  const [pendingImeDeletion, setPendingImeDeletion] = useState<ImeItem | null>(
-    null,
-  );
   const [addImeOpen, setAddImeOpen] = useState(false);
-  const [writeConfirm, setWriteConfirm] = useState<{
-    open: boolean;
-    existing: number;
-    total: number;
-  }>({ open: false, existing: 0, total: 0 });
+  const [writeConfirm, setWriteConfirm] = useState<WriteConfirm>({
+    open: false,
+    existing: 0,
+    total: 0,
+  });
 
-  const selectedOptions = useMemo(
-    () => gamePaths.filter((option) => option.path === selectedGamePath),
-    [gamePaths, selectedGamePath],
-  );
-  const selectedInputMethods = useMemo(
-    () => inputMethods.filter((item) => item.isSelected),
-    [inputMethods],
-  );
-
-  // 启动预扫描只执行一次（StrictMode 下 effect 会重复执行）
-  const initialScanStarted = useRef(false);
-  // 启动预扫描的 promise：进入第 2 步时等它完成，避免扫描未完就提示
-  const scanPromise = useRef<Promise<void> | null>(null);
-  // 最近一次扫描的结果，供进入第 2 步时提示
-  const scanOutcome = useRef<{ count: number; warning: string } | null>(null);
-  // 第 2 步的扫描提示只报一次
-  const scanNotified = useRef(false);
-
-  // 载入游戏路径选项（预设 + 自定义），并恢复上次选择。
-  const loadGamePaths = useCallback(async () => {
-    const [savedPaths, savedSelection] = await Promise.all([
-      // catch 只兜 reject；后端若返回了非数组也按空列表处理，避免列表渲染时崩掉
-      listCustomGamePaths().catch(() => []).then((paths) => paths ?? []),
-      getSelectedGamePath().catch(() => ""),
-    ]);
-
-    const presets: GamePathOption[] = [
-      {
-        displayName: t("GamePathOption/Steam"),
-        path: STEAM_DEFAULT_PATH,
-        isCustom: false,
-      },
-      {
-        displayName: t("GamePathOption/Lesta"),
-        path: LESTA_DEFAULT_PATH,
-        isCustom: false,
-      },
-      {
-        displayName: t("GamePathOption/Cn360"),
-        path: CN360_DEFAULT_PATH,
-        isCustom: false,
-      },
-    ];
-
-    const customPaths: GamePathOption[] = savedPaths
-      .map((saved) => ({
-        displayName: saved.displayName || saved.path,
-        path: saved.path,
-        isCustom: true,
-      }))
-      .filter(
-        (option) =>
-          option.path.trim().length > 0 &&
-          !presets.some(
-            (preset) => preset.path.toLowerCase() === option.path.toLowerCase(),
-          ),
-      );
-
-    const all = [...presets, ...customPaths];
-    const restored =
-      all.find(
-        (option) =>
-          option.path.toLowerCase() === (savedSelection ?? "").toLowerCase(),
-      ) ?? all[0];
-    setGamePaths(all);
-    setSelectedGamePath(restored?.path ?? "");
-  }, [t]);
-
-  // 载入已保存的自定义输入法，追加到扫描结果之后。
-  const loadSavedCustomInputMethods = useCallback(async () => {
-    const saved =
-      (await listCustomInputMethods().catch(() => [])) ?? [];
-    setInputMethods((current) => {
-      const existing = new Set(
-        current.map((item) => item.displayName.toLowerCase()),
-      );
-      const additions: ImeItem[] = saved
-        .filter(
-          (item) =>
-            item.displayName.trim().length > 0 &&
-            !existing.has(item.displayName.toLowerCase()),
-        )
-        .map((item) => ({
-          displayName: item.displayName,
-          category: item.category as ImeCategory,
-          isCustom: true,
-          isSelected: false,
-        }));
-      return [...current, ...additions];
-    });
-  }, []);
-
-  /**
-   * 扫描输入法。
-   *
-   * `silent` 为真时不弹提示——启动时的预扫描属于「准备数据」，
-   * 此时用户还在第 1 步，输入法列表尚未可见，提示时机不对；
-   * 真正的提示在进入第 2 步时给出（见 `goNext`）。
-   */
-  const scanInputMethodList = useCallback(async (silent = false) => {
-    const result = await scanInputMethods().catch(() => null);
-    if (!result) {
-      if (!silent) {
-        toast.error(t("Status/ScanCompletedNoImeWithWarning", { 0: "" }));
-      }
-      return;
-    }
-
-    const warning = result.warningCode
-      ? formatWarning(t, result.warningCode, result.warningArguments)
-      : "";
-    const scanned: ImeItem[] = result.candidates.map((candidate) => ({
-      displayName: candidate.displayName,
-      category: candidate.category,
-      isCustom: false,
-      isSelected: false,
-    }));
-
-    setInputMethods((current) => {
-      const customs = current.filter((item) => item.isCustom);
-      return [...scanned, ...customs];
-    });
-    scanOutcome.current = { count: scanned.length, warning };
-
-    if (silent) {
-      return;
-    }
-    if (scanned.length === 0 && warning) {
-      toast.warning(t("Status/ScanCompletedNoImeWithWarning", { 0: warning }));
-      return;
-    }
-    toast.success(t("Status/ScanCompletedWithCount", { 0: scanned.length }));
-  }, [t]);
-
-  useEffect(() => {
-    void loadGamePaths();
-    // 预扫描只做一次：StrictMode 下 effect 会重复执行，重复扫描既浪费也会弹两次提示
-    if (initialScanStarted.current) {
-      return;
-    }
-    initialScanStarted.current = true;
-    scanPromise.current = scanInputMethodList(true).then(() =>
-      loadSavedCustomInputMethods(),
-    );
-  }, [loadGamePaths, scanInputMethodList, loadSavedCustomInputMethods]);
-
-  const persistSelectedGamePath = (path: string) => {
-    void saveSelectedGamePath(path).catch(() => undefined);
-  };
-
-  const persistCustomGamePaths = (options: GamePathOption[]) => {
-    void saveCustomGamePaths(
-      options
-        .filter((option) => option.isCustom)
-        .map((option) => ({
-          displayName: option.displayName,
-          path: option.path,
-        })),
-    ).catch(() => undefined);
-  };
-
-  const persistCustomInputMethods = (items: ImeItem[]) => {
-    void saveCustomInputMethods(
-      items
-        .filter((item) => item.isCustom)
-        .map((item) => ({
-          displayName: item.displayName,
-          category: item.category,
-        })),
-    ).catch(() => undefined);
-  };
-
-  const selectGamePath = (path: string) => {
-    setSelectedGamePath(path);
-    persistSelectedGamePath(path);
-  };
-
-  const addCustomGamePath = async () => {
-    const picked = await open({ directory: true, multiple: false }).catch(
-      () => null,
-    );
-    if (typeof picked !== "string" || picked.trim().length === 0) {
-      return;
-    }
-    const path = picked.trim();
-
-    const existing = gamePaths.find(
-      (option) => option.path.toLowerCase() === path.toLowerCase(),
-    );
-    if (existing) {
-      selectGamePath(existing.path);
-      toast.info(t("Status/CustomGamePathExists"));
-      return;
-    }
-
-    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
-    const option: GamePathOption = {
-      displayName: name || path,
-      path,
-      isCustom: true,
-    };
-    const next = [...gamePaths, option];
-    setGamePaths(next);
-    selectGamePath(path);
-    persistCustomGamePaths(next);
-    toast.success(t("Status/CustomGamePathAdded"));
-  };
-
-  const deleteCustomGamePath = () => {
-    if (!pendingDeletion) {
-      return;
-    }
-    const wasSelected = pendingDeletion.path === selectedGamePath;
-    const next = gamePaths.filter(
-      (option) => option.path !== pendingDeletion.path,
-    );
-    setGamePaths(next);
-    persistCustomGamePaths(next);
-    if (wasSelected) {
-      const fallback = next[0]?.path ?? "";
-      setSelectedGamePath(fallback);
-      persistSelectedGamePath(fallback);
-    }
-    setPendingDeletion(null);
-    toast.success(t("Status/CustomGamePathDeleted"));
-  };
-
-  const openGameFolder = async () => {
-    if (!selectedGamePath) {
-      return;
-    }
-    const opened = await openPath(selectedGamePath).catch(() => false);
-    if (!opened) {
-      toast.error(t("Status/OpenDirectoryFailed", { 0: selectedGamePath }));
-    }
-  };
-
-  const toggleInputMethod = (displayName: string, checked: boolean) => {
-    setInputMethods((current) =>
-      current.map((item) =>
-        item.displayName === displayName
-          ? { ...item, isSelected: checked }
-          : item,
-      ),
-    );
-  };
-
-  const changeCategory = (displayName: string, category: ImeCategory) => {
-    setInputMethods((current) => {
-      const next = current.map((item) =>
-        item.displayName === displayName ? { ...item, category } : item,
-      );
-      persistCustomInputMethods(next);
-      return next;
-    });
-  };
-
-  const deleteCustomInputMethod = () => {
-    if (!pendingImeDeletion) {
-      return;
-    }
-    const next = inputMethods.filter(
-      (item) => item.displayName !== pendingImeDeletion.displayName,
-    );
-    setInputMethods(next);
-    persistCustomInputMethods(next);
-    setPendingImeDeletion(null);
-    toast.success(t("Status/CustomImeDeleted"));
-  };
-
-  const addCustomInputMethod = (displayName: string, category: ImeCategory) => {
-    const name = displayName.trim();
-    if (name.length === 0) {
-      toast.warning(t("Status/ImeNameEmpty"));
-      return;
-    }
-    if (
-      inputMethods.some(
-        (item) => item.displayName.toLowerCase() === name.toLowerCase(),
-      )
-    ) {
-      toast.warning(t("Status/ImeNameExists"));
-      return;
-    }
-    const next = [
-      ...inputMethods,
-      { displayName: name, category, isCustom: true, isSelected: true },
-    ];
-    setInputMethods(next);
-    persistCustomInputMethods(next);
-    toast.success(t("Status/CustomImeAdded"));
-  };
+  const gamePaths = useGamePaths();
+  const inputMethods = useInputMethods();
 
   const goNext = async () => {
-    if (step === 1 && selectedGamePath.length === 0) {
+    if (step === 1 && gamePaths.selectedGamePath.length === 0) {
       toast.warning(t("Status/GameRootInvalid"));
       return;
     }
-    if (step === 2 && selectedInputMethods.length === 0) {
+    if (step === 2 && inputMethods.selectedInputMethods.length === 0) {
       toast.warning(t("Status/SelectAtLeastOneIme"));
       return;
     }
     if (step === 1) {
       // 输入法列表在第 2 步才可见，扫描结果到这一步再提示
-      await scanPromise.current;
-      if (!scanNotified.current) {
-        scanNotified.current = true;
-        const outcome = scanOutcome.current;
-        if (outcome) {
-          if (outcome.count === 0 && outcome.warning) {
-            toast.warning(
-              t("Status/ScanCompletedNoImeWithWarning", { 0: outcome.warning }),
-            );
-          } else {
-            toast.success(
-              t("Status/ScanCompletedWithCount", { 0: outcome.count }),
-            );
-          }
-        }
-      }
+      await inputMethods.reportScanOutcome();
     }
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
@@ -431,30 +74,32 @@ export function HomePage() {
   };
 
   const prepareWrite = async () => {
-    if (selectedInputMethods.length === 0) {
+    if (inputMethods.selectedInputMethods.length === 0) {
       toast.warning(t("Status/SelectAtLeastOneIme"));
       return;
     }
-    if (selectedGamePath.length === 0) {
+    if (gamePaths.selectedGamePath.length === 0) {
       toast.error(t("Status/GameRootInvalid"));
       return;
     }
 
-    const hasExe = await hasGameExecutable(selectedGamePath).catch(() => false);
+    const hasExe = await hasGameExecutable(gamePaths.selectedGamePath).catch(
+      () => false,
+    );
     if (!hasExe) {
       toast.error(t("Status/GameExeNotFound"));
       return;
     }
 
-    const targets = await resolveTargetConfigFiles(selectedGamePath).catch(
-      () => [] as string[],
-    );
+    const targets = await resolveTargetConfigFiles(
+      gamePaths.selectedGamePath,
+    ).catch(() => [] as string[]);
     if (targets.length === 0) {
       toast.error(t("Status/BinVersionDirectoryNotFound"));
       return;
     }
 
-    const existing = await existingConfigCount(selectedGamePath).catch(
+    const existing = await existingConfigCount(gamePaths.selectedGamePath).catch(
       () => 0,
     );
     setWriteConfirm({ open: true, existing, total: targets.length });
@@ -462,14 +107,19 @@ export function HomePage() {
 
   const confirmWrite = async () => {
     setWriteConfirm((current) => ({ ...current, open: false }));
-    const definitions: InputMethodDefinition[] = selectedInputMethods.map(
-      (item) => ({ displayName: item.displayName, category: item.category }),
-    );
+    const definitions: InputMethodDefinition[] =
+      inputMethods.selectedInputMethods.map((item) => ({
+        displayName: item.displayName,
+        category: item.category,
+      }));
     try {
-      const written = await writeConfigFiles(selectedGamePath, definitions);
+      const written = await writeConfigFiles(
+        gamePaths.selectedGamePath,
+        definitions,
+      );
       toast.success(t("Status/WriteSucceededWithCount", { 0: written }));
-      persistSelectedGamePath(selectedGamePath);
-      persistCustomInputMethods(inputMethods);
+      gamePaths.persistSelection(gamePaths.selectedGamePath);
+      inputMethods.persistCustomInputMethods(inputMethods.inputMethods);
     } catch (error) {
       toast.error(t("Status/WriteFailed", { 0: describeError(error) }));
     }
@@ -497,356 +147,102 @@ export function HomePage() {
       </div>
 
       {step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("GameRootLabel.Text")}</CardTitle>
-            <CardDescription>
-              {t("GamePathSectionHint.Text")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              {gamePaths.map((option) => (
-                <label
-                  key={option.path}
-                  className="flex items-center gap-3 rounded-lg border px-3 py-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    name="game-path"
-                    className="size-4"
-                    checked={option.path === selectedGamePath}
-                    onChange={() => selectGamePath(option.path)}
-                  />
-                  <span className="font-medium">{option.displayName}</span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                    {option.path}
-                  </span>
-                  {option.isCustom && (
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => setPendingDeletion(option)}
-                    >
-                      {t("DeleteCustomGamePathButtonTemplate.Content")}
-                    </Button>
-                  )}
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => void addCustomGamePath()}>
-                {t("AddCustomGamePathButton.Content")}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={selectedGamePath.length === 0}
-                onClick={() => void openGameFolder()}
-              >
-                {t("OpenFolderButton.Content")}
-              </Button>
-            </div>
-            {selectedOptions.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {selectedOptions[0].path}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <GamePathStep
+          gamePaths={gamePaths.gamePaths}
+          selectedGamePath={gamePaths.selectedGamePath}
+          onSelect={gamePaths.selectGamePath}
+          onAdd={() => void gamePaths.addCustomGamePath()}
+          onOpenFolder={() => void gamePaths.openGameFolder()}
+          onRequestDeletion={gamePaths.requestDeletion}
+        />
       )}
 
       {step === 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("ImeSectionTitle.Text")}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="grid grid-cols-[1fr_10rem_6rem] gap-2 text-xs text-muted-foreground">
-              <span>{t("ImeTableHeaderName.Text")}</span>
-              <span>{t("ImeTableHeaderCategory.Text")}</span>
-              <span>{t("ImeTableHeaderAction.Text")}</span>
-            </div>
-            <div className="flex max-h-96 flex-col gap-1 overflow-y-auto">
-              {inputMethods.map((item) => (
-                <div
-                  key={item.displayName}
-                  className="grid grid-cols-[1fr_10rem_6rem] items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"
-                >
-                  <label className="flex min-w-0 items-center gap-2">
-                    <Checkbox
-                      checked={item.isSelected}
-                      onCheckedChange={(checked) =>
-                        toggleInputMethod(
-                          item.displayName,
-                          checked === true,
-                        )
-                      }
-                    />
-                    <span className="truncate">{item.displayName}</span>
-                  </label>
-                  <Select
-                    value={item.category}
-                    onValueChange={(value) =>
-                      changeCategory(item.displayName, value as ImeCategory)
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(
-                        Object.keys(CATEGORY_KEYS) as ImeCategory[]
-                      ).map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {t(CATEGORY_KEYS[category])}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex justify-end">
-                    {item.isCustom ? (
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => setPendingImeDeletion(item)}
-                      >
-                        {t("DeleteCustomImeButtonTemplate.Content")}
-                      </Button>
-                    ) : (
-                      <Badge variant="secondary">IME</Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setAddImeOpen(true)}>
-                {t("AddCustomImeButton.Content")}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  void scanInputMethodList().then(() =>
-                    loadSavedCustomInputMethods(),
-                  )
-                }
-              >
-                {t("RefreshImeButton.Content")}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <InputMethodStep
+          inputMethods={inputMethods.inputMethods}
+          onToggle={inputMethods.toggleInputMethod}
+          onChangeCategory={inputMethods.changeCategory}
+          onAdd={() => setAddImeOpen(true)}
+          onRescan={inputMethods.rescan}
+          onRequestDeletion={inputMethods.requestDeletion}
+        />
       )}
 
       {step === TOTAL_STEPS && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("WriteConfigCardHeader.Text")}</CardTitle>
-            <CardDescription>{t("GameRootLabel.Text")}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <p className="text-sm">{selectedGamePath}</p>
-            <Separator />
-            <p className="text-sm font-medium">
-              {t("ConfirmImeSectionHeader.Text")}
-            </p>
-            <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
-              {selectedInputMethods.map((item, index) => (
-                <li key={item.displayName}>
-                  {index + 1}. {item.displayName}
-                  <span className="ml-2 text-xs">
-                    {t(CATEGORY_KEYS[item.category])}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <ConfirmStep
+          gameRoot={gamePaths.selectedGamePath}
+          inputMethods={inputMethods.selectedInputMethods}
+        />
       )}
 
-      <AlertDialog
-        open={pendingDeletion !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingDeletion(null);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("Dialog/DeleteCustomGamePath/Title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingDeletion
-                ? t("Dialog/DeleteCustomGamePath/Content", {
-                    0: pendingDeletion.displayName,
-                    1: pendingDeletion.path,
-                  })
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("Dialog/Common/Cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={deleteCustomGamePath}>
-              {t("Dialog/DeleteCustomGamePath/PrimaryButton")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteGamePathDialog
+        option={gamePaths.pendingDeletion}
+        onCancel={gamePaths.cancelDeletion}
+        onConfirm={gamePaths.confirmDeletion}
+      />
 
-      <AlertDialog
-        open={pendingImeDeletion !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingImeDeletion(null);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("Dialog/DeleteCustomIme/Title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingImeDeletion
-                ? t("Dialog/DeleteCustomIme/Content", {
-                    0: pendingImeDeletion.displayName,
-                  })
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("Dialog/Common/Cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={deleteCustomInputMethod}>
-              {t("Dialog/DeleteCustomIme/PrimaryButton")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteInputMethodDialog
+        item={inputMethods.pendingDeletion}
+        onCancel={inputMethods.cancelDeletion}
+        onConfirm={inputMethods.confirmDeletion}
+      />
 
       <AddInputMethodDialog
         open={addImeOpen}
         onOpenChange={setAddImeOpen}
-        onConfirm={addCustomInputMethod}
+        onConfirm={inputMethods.addCustomInputMethod}
       />
 
-      <AlertDialog
-        open={writeConfirm.open}
+      <WriteConfirmDialog
+        confirm={writeConfirm}
         onOpenChange={(open) =>
           setWriteConfirm((current) => ({ ...current, open }))
         }
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {writeConfirm.existing > 0
-                ? t("Dialog/Overwrite/Title")
-                : t("Dialog/AddConfig/Title")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {writeConfirm.existing > 0
-                ? t("Dialog/Overwrite/Content", { 0: writeConfirm.existing })
-                : t("Dialog/AddConfig/Content", { 0: writeConfirm.total })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("Dialog/Common/Cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={() => void confirmWrite()}>
-              {writeConfirm.existing > 0
-                ? t("Dialog/Overwrite/PrimaryButton")
-                : t("Dialog/AddConfig/PrimaryButton")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={() => void confirmWrite()}
+      />
     </div>
   );
 }
 
-interface AddInputMethodDialogProps {
-  open: boolean;
+interface WriteConfirmDialogProps {
+  confirm: WriteConfirm;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (displayName: string, category: ImeCategory) => void;
+  onConfirm: () => void;
 }
 
-function AddInputMethodDialog({
-  open,
+/** 写入前确认：已有配置文件时提示覆盖，否则提示新增。 */
+function WriteConfirmDialog({
+  confirm,
   onOpenChange,
   onConfirm,
-}: AddInputMethodDialogProps) {
+}: WriteConfirmDialogProps) {
   const { t } = useTranslation();
-  const [displayName, setDisplayName] = useState("");
-  const [category, setCategory] = useState<ImeCategory>("ChineseSimplified");
-
-  useEffect(() => {
-    if (open) {
-      setDisplayName("");
-      setCategory("ChineseSimplified");
-    }
-  }, [open]);
+  const overwrite = confirm.existing > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("Dialog/AddCustomIme/Title")}</DialogTitle>
-          <DialogDescription>
-            {t("Dialog/AddCustomIme/NameLabel")}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <Label htmlFor="custom-ime-name">{t("Dialog/AddCustomIme/NameLabel")}</Label>
-          <Input
-            id="custom-ime-name"
-            value={displayName}
-            placeholder={t("Dialog/AddCustomIme/Placeholder")}
-            onChange={(event) => setDisplayName(event.target.value)}
-          />
-          <Label htmlFor="custom-ime-category">
-            {t("Dialog/AddCustomIme/CategoryLabel")}
-          </Label>
-          <Select
-            value={category}
-            onValueChange={(value) => setCategory(value as ImeCategory)}
-          >
-            <SelectTrigger id="custom-ime-category" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(CATEGORY_KEYS) as ImeCategory[]).map((key) => (
-                <SelectItem key={key} value={key}>
-                  {t(CATEGORY_KEYS[key])}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            {t("Dialog/Common/Cancel")}
-          </Button>
-          <Button
-            onClick={() => {
-              onConfirm(displayName, category);
-              onOpenChange(false);
-            }}
-          >
-            {t("Dialog/AddCustomIme/PrimaryButton")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <AlertDialog open={confirm.open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {overwrite
+              ? t("Dialog/Overwrite/Title")
+              : t("Dialog/AddConfig/Title")}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {overwrite
+              ? t("Dialog/Overwrite/Content", { 0: confirm.existing })
+              : t("Dialog/AddConfig/Content", { 0: confirm.total })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("Dialog/Common/Cancel")}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>
+            {overwrite
+              ? t("Dialog/Overwrite/PrimaryButton")
+              : t("Dialog/AddConfig/PrimaryButton")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
-
-/** 扫描警告码格式化与错误提取已抽到 `src/lib/errors.ts`，便于单独测试。 */
