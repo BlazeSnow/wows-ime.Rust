@@ -810,15 +810,14 @@ function formatWarning(
   return translated === code ? code : translated;
 }
 
-/** 提取后端错误信息（后端返回 `{ code, detail }`）。 */
+/** 提取后端错误信息：优先用可读的 detail，其次才回退到错误码。 */
 function describeError(error: unknown): string {
   if (typeof error === "string") {
     return error;
   }
   if (error && typeof error === "object" && "code" in error) {
-    const code = String((error as { code: unknown }).code);
     const detail = (error as { detail?: unknown }).detail;
-    return detail ? `${code}: ${String(detail)}` : code;
+    return detail ? String(detail) : String((error as { code: unknown }).code);
   }
   return String(error);
 }

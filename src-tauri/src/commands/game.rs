@@ -1,6 +1,6 @@
 //! 游戏目录校验与配置文件写入命令。
 
-use crate::error::{internal_error, AppResult};
+use crate::error::{AppError, AppResult};
 use crate::gameconfig;
 use crate::models::InputMethodDefinition;
 
@@ -32,12 +32,15 @@ pub fn write_config_files(
     input_methods: Vec<InputMethodDefinition>,
 ) -> AppResult<usize> {
     if input_methods.is_empty() {
-        return Err(crate::error::AppError::new("ErrorNoInputMethodSelected"));
+        return Err(AppError::new("ErrorNoInputMethodSelected"));
     }
     let targets = gameconfig::resolve_target_config_files(&game_root);
     if targets.is_empty() {
-        return Err(crate::error::AppError::new("ErrorBinVersionDirectoryNotFound"));
+        return Err(AppError::new("ErrorBinVersionDirectoryNotFound"));
     }
-    gameconfig::write_config_files(&targets, &input_methods).map_err(|_| internal_error())?;
+    gameconfig::write_config_files(&targets, &input_methods).map_err(|failure| {
+        // detail 带上出错的具体路径，便于用户判断是哪个版本目录写入失败
+        AppError::with_detail("ErrorWriteConfigFailed", failure.to_string())
+    })?;
     Ok(targets.len())
 }

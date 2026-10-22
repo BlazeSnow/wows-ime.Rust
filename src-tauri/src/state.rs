@@ -1,6 +1,6 @@
 //! 全局应用状态。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use rusqlite::Connection;
@@ -14,8 +14,8 @@ pub struct AppState {
 
 impl AppState {
     /// 设置库路径：`<数据目录>\settings.db`。
-    pub fn db_path(&self) -> PathBuf {
-        self.data_dir.join("settings.db")
+    pub fn db_path(data_dir: &Path) -> PathBuf {
+        data_dir.join("settings.db")
     }
 }
 
@@ -25,10 +25,9 @@ mod tests {
 
     #[test]
     fn db_path_is_settings_db_under_data_dir() {
-        let state = AppState {
-            data_dir: PathBuf::from("app-data"),
-            db: Mutex::new(Connection::open_in_memory().unwrap()),
-        };
-        assert_eq!(state.db_path(), PathBuf::from("app-data").join("settings.db"));
+        assert_eq!(
+            AppState::db_path(Path::new("app-data")),
+            PathBuf::from("app-data").join("settings.db")
+        );
     }
 }

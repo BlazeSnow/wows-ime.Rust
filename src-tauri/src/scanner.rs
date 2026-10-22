@@ -117,11 +117,22 @@ fn collect_candidates(candidates: &mut Vec<ScannedImeCandidate>) -> InputMethodS
     }
 
     let language_ids = unsafe { std::slice::from_raw_parts(language_ids, language_count as usize) };
+    let mut com_error: Option<i32> = None;
     for &language_id in language_ids {
         if !is_target_language_profile(language_id) {
             continue;
         }
-        collect_language_profiles(&profiles, language_id, candidates);
+        if let Some(hresult) = collect_language_profiles(&profiles, language_id, candidates) {
+            com_error.get_or_insert(hresult);
+        }
+    }
+
+    if let Some(hresult) = com_error {
+        return warning(
+            std::mem::take(candidates),
+            COM_EXCEPTION_WARNING,
+            vec![format_hresult(hresult)],
+        );
     }
 
     InputMethodScanResult {
@@ -131,13 +142,15 @@ fn collect_candidates(candidates: &mut Vec<ScannedImeCandidate>) -> InputMethodS
     }
 }
 
+/// 枚举某个语言下的输入法配置文件；COM 调用失败时返回 HRESULT。
 fn collect_language_profiles(
     profiles: &ITfInputProcessorProfiles,
     language_id: u16,
     candidates: &mut Vec<ScannedImeCandidate>,
-) {
-    let Ok(enumerator) = (unsafe { profiles.EnumLanguageProfiles(language_id) }) else {
-        return;
+) -> Option<i32> {
+    let enumerator = match unsafe { profiles.EnumLanguageProfiles(language_id) } {
+        Ok(enumerator) => enumerator,
+        Err(error) => return Some(error.code().0),
     };
 
     loop {
@@ -175,6 +188,8 @@ fn collect_language_profiles(
             confidence: 10,
         });
     }
+
+    None
 }
 
 fn profile_description(
@@ -264,6 +279,11 @@ fn warning(
     }
 }
 
+/// 扫描出现未预期异常（panic）时的结果：返回稳定的警告码，保证界面不中断。
+pub fn generic_failure() -> InputMethodScanResult {
+    warning(Vec::new(), GENERIC_EXCEPTION_WARNING, Vec::new())
+}
+
 fn format_hresult(value: i32) -> String {
     format!("0x{:08X}", value as u32)
 }
@@ -339,6 +359,22 @@ mod tests {
         assert!(is_noise_ime_name("微软拼音 输入体验"));
         assert!(is_noise_ime_name("Microsoft Pinyin Input Experience"));
         assert!(!is_noise_ime_name("微软拼音"));
+    }
+
+    #[test]
+    fn generic_failure_carries_stable_warning_code() {
+        let result = generic_failure();
+        assert_eq!(result.warning_code.as_deref(), Some(GENERIC_EXCEPTION_WARNING));
+        assert!(result.candidates.is_empty());
+    }
+
+    #[test]
+    fn panic_is_catchable_in_this_profile() {
+        // release profile 必须保留 unwind：panic = "abort" 会让 catch_unwind 失效，
+        // 扫描异常将直接终止进程，违背「扫描异常不中断界面」的约定。
+        // 用 `cargo test --release` 跑本用例即可守住这条约束。
+        let caught = std::panic::catch_unwind(|| -> u32 { panic!("测试 panic") });
+        assert!(caught.is_err());
     }
 
     #[test]

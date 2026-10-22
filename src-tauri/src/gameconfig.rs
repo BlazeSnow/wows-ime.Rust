@@ -92,17 +92,36 @@ pub fn build_config_document(selected: &[InputMethodDefinition]) -> String {
     document
 }
 
+/// 写入失败：定位到具体的目标文件，便于前端提示出错的路径。
+#[derive(Debug)]
+pub struct WriteFailure {
+    pub path: PathBuf,
+    pub source: std::io::Error,
+}
+
+impl std::fmt::Display for WriteFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.path.display(), self.source)
+    }
+}
+
 /// 把配置文件写入全部目标路径（UTF-8 无 BOM，必要时创建目录）。
 pub fn write_config_files(
     target_files: &[PathBuf],
     selected: &[InputMethodDefinition],
-) -> std::io::Result<()> {
+) -> Result<(), WriteFailure> {
     let document = build_config_document(selected);
     for target_file in target_files {
-        if let Some(directory) = target_file.parent() {
-            fs::create_dir_all(directory)?;
-        }
-        fs::write(target_file, document.as_bytes())?;
+        let write = || -> std::io::Result<()> {
+            if let Some(directory) = target_file.parent() {
+                fs::create_dir_all(directory)?;
+            }
+            fs::write(target_file, document.as_bytes())
+        };
+        write().map_err(|source| WriteFailure {
+            path: target_file.clone(),
+            source,
+        })?;
     }
     Ok(())
 }

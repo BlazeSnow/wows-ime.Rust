@@ -1,3 +1,7 @@
+// MSVC 链接器把「正在创建库 …」写到 stdout，rustc 会把它当成链接器消息警告；
+// 该信息对构建无诊断价值，统一在此静音。
+#![allow(linker_messages)]
+
 mod commands;
 mod error;
 mod gameconfig;
@@ -41,7 +45,7 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let db = storage::open(&data_dir.join("settings.db")).map_err(|e| {
+            let db = storage::open(&AppState::db_path(&data_dir)).map_err(|e| {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("打开设置库失败：{e}"))
             })?;
 

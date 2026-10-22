@@ -43,5 +43,7 @@ windows = { version = "0.62", features = [
 codegen-units = 1
 lto = true
 opt-level = 3
-panic = "abort"
+# 必须保留 unwind：release 下 panic = "abort" 会让 catch_unwind 失效，
+# 而输入法扫描靠 catch_unwind 保证「扫描异常不中断界面」（与原 WinUI 3 版行为一致）。
+panic = "unwind"
 strip = true

@@ -35,6 +35,12 @@
 - 旧 `config.json` 迁移按原版规则执行，仍用「改名为 `config.json.migrated`」作为已迁移标记，不额外写标记位。
 - 所有持久化异常静默吞掉，与原版一致。
 
+### 警告码与异常边界
+
+- 原版的 COM 调用失败会以 `COMException` 抛出并被捕获，上报 `Tsf/ComException`。Rust 侧 COM 调用返回 `Result`，因此改为在枚举语言配置文件失败时上报 `COM_EXCEPTION_WARNING`（带 HRESULT），语义等价。
+- 原版的兜底 `catch (Exception)` 对应本版的 `Tsf/GenericException`：扫描命令用 `catch_unwind` 捕获未预期的 panic，转成该警告码，保证「扫描异常不中断界面」。
+- **因此 release profile 不能用 `panic = "abort"`**：abort 模式下 `catch_unwind` 失效，panic 会直接终止进程，该保证形同虚设。`Cargo.toml` 的 release profile 保留 `panic = "unwind"`，并由 `panic_is_catchable_in_this_profile` 用例（需用 `cargo test --release` 运行）守住这条约束。
+
 ### 依赖与离线构建
 
 - 本机 crates.io 索引更新会长时间挂起，`cargo build --offline` 可用（本地已有完整缓存）。新增依赖时优先选已在缓存中的版本。
