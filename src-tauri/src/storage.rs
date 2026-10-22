@@ -29,6 +29,8 @@ pub const SETTING_SELECTED_GAME_PATH: &str = "Game.SelectedPath";
 pub const SETTING_SCHEMA_VERSION: &str = "Settings.SchemaVersion";
 /// 当前配置结构版本。
 pub const CURRENT_SCHEMA_VERSION: &str = "1";
+/// 旧版数据迁移完成标记（详见 `migrate_legacy_config_json`）。
+pub const SETTING_LEGACY_MIGRATED: &str = "Settings.LegacyMigrated";
 
 /// 打开设置库；文件不存在时创建。
 pub fn open(db_path: &Path) -> rusqlite::Result<Connection> {
@@ -322,6 +324,10 @@ struct LegacyInputMethod {
 ///
 /// 返回是否发生了迁移。
 pub fn migrate_legacy_config_json(conn: &Connection, legacy_dir: &Path) -> bool {
+    // 已迁移过就不再重复，不依赖文件改名是否成功
+    if get_setting(conn, SETTING_LEGACY_MIGRATED, "") == "1" {
+        return false;
+    }
     let legacy_path = legacy_dir.join(LEGACY_CONFIG_FILE_NAME);
     if !legacy_path.is_file() {
         return false;
@@ -370,8 +376,8 @@ pub fn migrate_legacy_config_json(conn: &Connection, legacy_dir: &Path) -> bool 
                 Some(PersistedGamePath { display_name, path: path.to_string() })
             })
             .collect();
-        if !migrated.is_empty() {
-            let _ = save_custom_game_paths(conn, &migrated);
+        if !migrated.is_empty() && upsert_custom_game_paths(conn, &migrated).is_err() {
+            return false;
         }
     }
 
@@ -387,13 +393,62 @@ pub fn migrate_legacy_config_json(conn: &Connection, legacy_dir: &Path) -> bool 
                 })
             })
             .collect();
-        if !migrated.is_empty() {
-            let _ = save_custom_input_methods(conn, &migrated);
+        if !migrated.is_empty() && upsert_custom_input_methods(conn, &migrated).is_err() {
+            return false;
         }
     }
 
+    // 数据落库成功后才记标记并改名；任一步失败都保留 config.json，下次启动会重试。
+    if set_setting(conn, SETTING_LEGACY_MIGRATED, "1").is_err() {
+        return false;
+    }
     rename_migrated_legacy_config(&legacy_path, legacy_dir);
     true
+}
+
+/// 旧版数据迁移完成标记。
+///
+/// 原 WinUI 3 版靠「把 config.json 改名成 config.json.migrated」来保证只迁移一次；
+/// 改名失败（文件被占用、目录只读）时旧文件仍在，下次启动会重复迁移，
+/// 而迁移写入若沿用全量同步语义，就会把用户后来新增的自定义路径删掉。
+/// 标记存进库，不依赖改名是否成功。
+
+/// 只写入（upsert）不删除。迁移专用：绝不能动用户已有的数据。
+fn upsert_custom_game_paths(
+    conn: &Connection,
+    paths: &[PersistedGamePath],
+) -> rusqlite::Result<()> {
+    let transaction = conn.unchecked_transaction()?;
+    for path in paths {
+        transaction.execute(
+            "INSERT INTO custom_game_paths (display_name, path, created_at, updated_at)
+             VALUES (?1, ?2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON CONFLICT(path) DO UPDATE SET
+                 display_name = excluded.display_name,
+                 updated_at = CURRENT_TIMESTAMP;",
+            params![path.display_name, path.path],
+        )?;
+    }
+    transaction.commit()
+}
+
+/// 只写入（upsert）不删除。迁移专用。
+fn upsert_custom_input_methods(
+    conn: &Connection,
+    methods: &[PersistedInputMethod],
+) -> rusqlite::Result<()> {
+    let transaction = conn.unchecked_transaction()?;
+    for method in methods {
+        transaction.execute(
+            "INSERT INTO custom_input_methods (display_name, category, created_at, updated_at)
+             VALUES (?1, ?2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON CONFLICT(display_name) DO UPDATE SET
+                 category = excluded.category,
+                 updated_at = CURRENT_TIMESTAMP;",
+            params![method.display_name, method.category],
+        )?;
+    }
+    transaction.commit()
 }
 
 fn rename_migrated_legacy_config(legacy_path: &Path, legacy_dir: &Path) {

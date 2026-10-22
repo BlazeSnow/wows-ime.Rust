@@ -10,6 +10,62 @@ fn conn() -> Connection {
 }
 
 #[test]
+fn legacy_migration_keeps_paths_added_by_this_version() {
+    let conn = conn();
+    let dir = std::env::temp_dir().join("wows-ime-legacy-keep-test");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // 本版本自己添加的自定义路径
+    save_custom_game_paths(
+        &conn,
+        &[PersistedGamePath {
+            display_name: "本版本路径".to_string(),
+            path: "C:\\Current".to_string(),
+        }],
+    )
+    .unwrap();
+
+    std::fs::write(
+        dir.join(LEGACY_CONFIG_FILE_NAME),
+        r#"{ "GamePaths": [ { "Path": "C:\\Legacy", "Name": "旧路径" } ] }"#,
+    )
+    .unwrap();
+
+    assert!(migrate_legacy_config_json(&conn, &dir));
+
+    // 迁移只增不减：两条路径都应在
+    let loaded = load_custom_game_paths(&conn);
+    assert_eq!(loaded.len(), 2, "迁移不应删除本版本已保存的路径: {loaded:?}");
+    assert!(loaded.iter().any(|item| item.path == "C:\\Current"));
+    assert!(loaded.iter().any(|item| item.path == "C:\\Legacy"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn legacy_migration_runs_only_once_even_if_rename_fails() {
+    let conn = conn();
+    let dir = std::env::temp_dir().join("wows-ime-legacy-once-test");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let legacy = dir.join(LEGACY_CONFIG_FILE_NAME);
+    let body = r#"{ "GamePaths": [ { "Path": "C:\\Legacy", "Name": "旧路径" } ] }"#;
+    std::fs::write(&legacy, body).unwrap();
+
+    assert!(migrate_legacy_config_json(&conn, &dir));
+
+    // 模拟改名失败：旧文件仍在（如被占用、目录只读）
+    std::fs::write(&legacy, body).unwrap();
+
+    // 有迁移标记在，不再重复迁移（否则会覆盖用户后来新增的数据）
+    assert!(!migrate_legacy_config_json(&conn, &dir));
+    assert_eq!(load_custom_game_paths(&conn).len(), 1);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn initialize_is_idempotent() {
     let conn = conn();
     initialize(&conn).unwrap();
