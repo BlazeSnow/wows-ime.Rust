@@ -31,12 +31,9 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex items-baseline gap-3 border-b px-5 py-3">
+      <header className="border-b px-5 py-3">
         <span className="font-heading text-base font-medium">
           {t("App/Title")}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {t("AppDescription")}
         </span>
       </header>
       <div className="flex min-h-0 flex-1">

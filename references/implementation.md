@@ -58,7 +58,7 @@
   | `src-tauri/tauri.conf.json` 的 `window.title` | 原生窗口标题的初始值（打包后可见） |
   | `msix/AppxManifest.template.xml` 的 `DisplayName` 与 `uap:VisualElements/@DisplayName` | 商店包的显示名 |
 - `productName` 与包身份 `BlazeSnow.WOWS-IME` 保持不变：前者决定二进制文件名，后者是商店里已登记的身份，不能随意改。
-- 副标题（`AppDescription`，「战舰世界中文输入法配置工具」）描述的是功能而非标题，不受 10.1.1 约束，保留。
+- 界面内的标题栏只显示应用名，不再带副标题：原生窗口标题已经显示应用名，副标题（「战舰世界中文输入法配置工具」描述功能而非标题）属重复信息。原先承载副标题的 `AppDescription` 键因此从本地化资源中移除；该文案在 MSIX 清单的 `uap:VisualElements/@Description` 中仍以硬编码形式保留（清单读不到应用的 JSON 资源）。
 - 原生窗口标题用 `getCurrentWindow().setTitle()` 在运行时跟随界面语言，需要在 `capabilities/default.json` 里放行 `core:window:allow-set-title`。
 
 ### 依赖与索引镜像
@@ -80,7 +80,7 @@
 ## M3 · 前端
 
 - 三步向导用组件内 `step` 状态驱动，不用路由，与原版 `NavigationView` + 页面切换的行为对齐。
-- 文案资源由原版三份 `Resources.resw` 转换生成（91 键 × 3 语种），键名与文案完全沿用，避免人工转录误差。
+- 文案资源由原版三份 `Resources.resw` 转换生成（90 键 × 3 语种），键名与文案完全沿用，避免人工转录误差。
 - i18next 的 `keySeparator` / `nsSeparator` 关闭（键名含 `.` 与 `/`），插值分隔符改为单花括号以匹配原版 `{0}` 风格。
 - 语言切换改为立即生效（原版需重启应用），因为 i18next 支持运行时切换。
 - 状态反馈统一用 `sonner` 的 toast。

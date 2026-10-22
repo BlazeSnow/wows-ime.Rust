@@ -1,7 +1,6 @@
 {
   "App/Title": "WOWS输入法工具",
   "AppDisplayName": "WOWS输入法工具",
-  "AppDescription": "战舰世界中文输入法配置工具",
   "GameRootLabel.Text": "游戏根目录",
   "GamePathSectionHint.Text": "选择预设路径或添加自定义路径",
   "AddCustomGamePathButton.Content": "添加自定义路径",
