@@ -125,7 +125,8 @@ export function HomePage() {
   // 载入游戏路径选项（预设 + 自定义），并恢复上次选择。
   const loadGamePaths = useCallback(async () => {
     const [savedPaths, savedSelection] = await Promise.all([
-      listCustomGamePaths().catch(() => []),
+      // catch 只兜 reject；后端若返回了非数组也按空列表处理，避免列表渲染时崩掉
+      listCustomGamePaths().catch(() => []).then((paths) => paths ?? []),
       getSelectedGamePath().catch(() => ""),
     ]);
 
@@ -173,7 +174,8 @@ export function HomePage() {
 
   // 载入已保存的自定义输入法，追加到扫描结果之后。
   const loadSavedCustomInputMethods = useCallback(async () => {
-    const saved = await listCustomInputMethods().catch(() => []);
+    const saved =
+      (await listCustomInputMethods().catch(() => [])) ?? [];
     setInputMethods((current) => {
       const existing = new Set(
         current.map((item) => item.displayName.toLowerCase()),

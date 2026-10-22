@@ -1,3 +1,4 @@
+import { type LucideIcon, House, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -8,9 +9,9 @@ import { SettingsPage } from "./pages/SettingsPage";
 
 type PageKey = "home" | "settings";
 
-const NAV_ITEMS: { key: PageKey; label: string }[] = [
-  { key: "home", label: "Nav/Home" },
-  { key: "settings", label: "Nav/Settings" },
+const NAV_ITEMS: { key: PageKey; label: string; icon: LucideIcon }[] = [
+  { key: "home", label: "Nav/Home", icon: House },
+  { key: "settings", label: "Nav/Settings", icon: Settings },
 ];
 
 export default function App() {
@@ -44,12 +45,13 @@ export default function App() {
               type="button"
               onClick={() => setPage(item.key)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-left text-sm transition-colors",
+                "flex items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors",
                 page === item.key
                   ? "bg-secondary font-medium text-secondary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               )}
             >
+              <item.icon className="size-4 shrink-0" aria-hidden="true" />
               {t(item.label)}
             </button>
           ))}
