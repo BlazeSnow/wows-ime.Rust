@@ -49,6 +49,34 @@ fn names_are_xml_escaped() {
 }
 
 #[test]
+fn invalid_xml_control_characters_are_dropped() {
+    // XML 1.0 不允许这些控制字符，原样写入会产出非法 XML
+    let document = build_config_document(&[definition(
+        "微\u{1}软\u{b}拼音\u{0}",
+        ImeCategory::ChineseSimplified,
+    )]);
+    assert!(document.contains("微软拼音"), "{document}");
+    assert!(!document.contains('\u{1}'), "{document}");
+    assert!(!document.contains('\u{b}'), "{document}");
+    assert!(!document.contains('\u{0}'), "{document}");
+}
+
+#[test]
+fn tabs_newlines_and_non_ascii_are_kept() {
+    let document = build_config_document(&[definition(
+        "微\t软\n拼音\r",
+        ImeCategory::ChineseSimplified,
+    )]);
+    assert!(document.contains("微\t软\n拼音\r"), "{document}");
+    // 增补平面字符（如 emoji）也属合法 XML 字符
+    let document = build_config_document(&[definition(
+        "输入法😀",
+        ImeCategory::ChineseSimplified,
+    )]);
+    assert!(document.contains("输入法😀"), "{document}");
+}
+
+#[test]
 fn resolve_skips_non_numeric_version_dirs() {
     let temp = std::env::temp_dir().join("wows-ime-gameconfig-test");
     let _ = fs::remove_dir_all(&temp);

@@ -144,7 +144,17 @@ fn render_group(name: &str, entries: &[String]) -> String {
     group
 }
 
+/// XML 1.0 允许的字符范围。
+///
+/// XML 1.0 只允许制表、换行、回车这三个控制字符，其余控制字符与 `U+FFFE`/`U+FFFF`
+/// 都不合法；原样写进配置文件会让游戏解析失败。
+fn is_valid_xml_char(ch: char) -> bool {
+    matches!(ch as u32, 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF)
+}
+
 /// XML 文本转义，避免输入法名称中的 `&`、`<` 等破坏文档结构。
+///
+/// 不合法的控制字符直接丢弃（而非原样写入），保证产出的始终是合法 XML。
 fn escape_xml(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for ch in text.chars() {
@@ -154,7 +164,9 @@ fn escape_xml(text: &str) -> String {
             '>' => escaped.push_str("&gt;"),
             '"' => escaped.push_str("&quot;"),
             '\'' => escaped.push_str("&apos;"),
-            _ => escaped.push(ch),
+            '\t' | '\n' | '\r' => escaped.push(ch),
+            ch if is_valid_xml_char(ch) => escaped.push(ch),
+            _ => {}
         }
     }
     escaped
