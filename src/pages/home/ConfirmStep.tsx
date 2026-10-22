@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
@@ -32,12 +31,15 @@ export function ConfirmStep({ gameRoot, inputMethods }: ConfirmStepProps) {
     <Card>
       <CardHeader>
         <CardTitle>{t("WriteConfigCardHeader.Text")}</CardTitle>
-        <CardDescription>{t("GameRootLabel.Text")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-sm">{gameRoot}</p>
+        {/* 「游戏根目录」与「已选输入法」是平级的两个小节标题，样式保持一致 */}
+        <p className="text-sm font-medium">{t("GameRootLabel.Text")}</p>
+        <p className="break-all text-sm text-muted-foreground">{gameRoot}</p>
         <Separator />
-        <p className="text-sm font-medium">{t("ConfirmImeSectionHeader.Text")}</p>
+        <p className="text-sm font-medium">
+          {t("ConfirmImeSectionHeader.Text")}
+        </p>
         <Table>
           <TableHeader>
             <TableRow>
