@@ -17,9 +17,15 @@ export interface UseInputMethods {
   inputMethods: ImeItem[];
   /** 已勾选的输入法。 */
   selectedInputMethods: ImeItem[];
+  /** 已勾选的数量。 */
+  selectedCount: number;
+  /** 是否全部勾选（列表为空时为 false）。 */
+  allSelected: boolean;
   /** 待确认删除的输入法。 */
   pendingDeletion: ImeItem | null;
   toggleInputMethod: (displayName: string, checked: boolean) => void;
+  /** 全选 / 取消全选。 */
+  toggleSelectAll: (checked: boolean) => void;
   changeCategory: (displayName: string, category: ImeCategory) => void;
   addCustomInputMethod: (displayName: string, category: ImeCategory) => void;
   requestDeletion: (item: ImeItem) => void;
@@ -230,12 +236,23 @@ export function useInputMethods(): UseInputMethods {
     () => inputMethods.filter((item) => item.isSelected),
     [inputMethods],
   );
+  const selectedCount = selectedInputMethods.length;
+  const allSelected = inputMethods.length > 0 && selectedCount === inputMethods.length;
+
+  const toggleSelectAll = useCallback((checked: boolean) => {
+    setInputMethods((current) =>
+      current.map((item) => ({ ...item, isSelected: checked })),
+    );
+  }, []);
 
   return {
     inputMethods,
     selectedInputMethods,
+    selectedCount,
+    allSelected,
     pendingDeletion,
     toggleInputMethod,
+    toggleSelectAll,
     changeCategory,
     addCustomInputMethod,
     requestDeletion: setPendingDeletion,

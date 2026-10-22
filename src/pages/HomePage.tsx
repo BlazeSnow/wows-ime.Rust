@@ -160,7 +160,10 @@ export function HomePage() {
       {step === 2 && (
         <InputMethodStep
           inputMethods={inputMethods.inputMethods}
+          allSelected={inputMethods.allSelected}
+          selectedCount={inputMethods.selectedCount}
           onToggle={inputMethods.toggleInputMethod}
+          onSelectAll={inputMethods.toggleSelectAll}
           onChangeCategory={inputMethods.changeCategory}
           onAdd={() => setAddImeOpen(true)}
           onRescan={inputMethods.rescan}

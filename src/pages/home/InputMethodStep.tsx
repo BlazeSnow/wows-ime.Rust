@@ -22,7 +22,12 @@ import type { ImeItem } from "./types";
 
 interface InputMethodStepProps {
   inputMethods: ImeItem[];
+  /** 是否全部勾选。 */
+  allSelected: boolean;
+  /** 已勾选数量（用于半选态）。 */
+  selectedCount: number;
   onToggle: (displayName: string, checked: boolean) => void;
+  onSelectAll: (checked: boolean) => void;
   onChangeCategory: (displayName: string, category: ImeCategory) => void;
   onAdd: () => void;
   onRescan: () => void;
@@ -32,13 +37,22 @@ interface InputMethodStepProps {
 /** 第 2 步：勾选要写入的输入法并调整分类。 */
 export function InputMethodStep({
   inputMethods,
+  allSelected,
+  selectedCount,
   onToggle,
+  onSelectAll,
   onChangeCategory,
   onAdd,
   onRescan,
   onRequestDeletion,
 }: InputMethodStepProps) {
   const { t } = useTranslation();
+  // 部分勾选时表头复选框显示半选态
+  const selectAllState: boolean | "indeterminate" = allSelected
+    ? true
+    : selectedCount > 0
+      ? "indeterminate"
+      : false;
 
   return (
     <Card>
@@ -46,8 +60,17 @@ export function InputMethodStep({
         <CardTitle>{t("ImeSectionTitle.Text")}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-[1fr_10rem_6rem] gap-2 text-xs text-muted-foreground">
-          <span>{t("ImeTableHeaderName.Text")}</span>
+        <div className="grid grid-cols-[1fr_10rem_6rem] items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="ime-select-all"
+              aria-label={t("Ime/SelectAll")}
+              title={t("Ime/SelectAll")}
+              checked={selectAllState}
+              onCheckedChange={(checked) => onSelectAll(checked === true)}
+            />
+            <span>{t("ImeTableHeaderName.Text")}</span>
+          </div>
           <span>{t("ImeTableHeaderCategory.Text")}</span>
           <span>{t("ImeTableHeaderAction.Text")}</span>
         </div>
@@ -60,6 +83,7 @@ export function InputMethodStep({
               <div className="flex min-w-0 items-center gap-2">
                 <label className="flex min-w-0 items-center gap-2">
                   <Checkbox
+                    aria-label={item.displayName}
                     checked={item.isSelected}
                     onCheckedChange={(checked) =>
                       onToggle(item.displayName, checked === true)

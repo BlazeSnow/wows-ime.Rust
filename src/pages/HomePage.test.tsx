@@ -139,6 +139,28 @@ describe("HomePage 三步向导", () => {
     });
   });
 
+  it("全选勾选所有输入法，再点一次取消全选", async () => {
+    const user = userEvent.setup();
+    await renderHome();
+
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await waitFor(() => {
+      expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
+    });
+
+    const selectAll = screen.getByRole("checkbox", { name: "全选" });
+    const simplified = screen.getByRole("checkbox", { name: "微软拼音" });
+    const traditional = screen.getByRole("checkbox", { name: "微軟速成" });
+
+    await user.click(selectAll);
+    expect(simplified).toHaveAttribute("aria-checked", "true");
+    expect(traditional).toHaveAttribute("aria-checked", "true");
+
+    await user.click(selectAll);
+    expect(simplified).toHaveAttribute("aria-checked", "false");
+    expect(traditional).toHaveAttribute("aria-checked", "false");
+  });
+
   it("首步列出三个预设游戏路径并默认选中第一个", async () => {
     await renderHome();
 
@@ -203,7 +225,7 @@ describe("HomePage 三步向导", () => {
       expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
     });
 
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("checkbox", { name: "微软拼音" }));
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
     await waitFor(() => {
@@ -227,7 +249,7 @@ describe("HomePage 三步向导", () => {
     await waitFor(() => {
       expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
     });
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("checkbox", { name: "微软拼音" }));
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
     await waitFor(() => {
@@ -264,7 +286,7 @@ describe("HomePage 三步向导", () => {
     await waitFor(() => {
       expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
     });
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("checkbox", { name: "微软拼音" }));
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
     await waitFor(() => {
@@ -286,7 +308,7 @@ describe("HomePage 三步向导", () => {
     await waitFor(() => {
       expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
     });
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("checkbox", { name: "微软拼音" }));
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
     await waitFor(() => {
@@ -314,7 +336,7 @@ describe("HomePage 三步向导", () => {
     await waitFor(() => {
       expect(screen.getByText("检测到的输入法")).toBeInTheDocument();
     });
-    await user.click(screen.getAllByRole("checkbox")[0]);
+    await user.click(screen.getByRole("checkbox", { name: "微软拼音" }));
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
     await waitFor(() => {

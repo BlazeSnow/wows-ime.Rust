@@ -79,6 +79,7 @@
   "Tsf/GenericException": "TSF異常: {0}",
   "Ime/Weixin": "微信輸入法",
   "Ime/SystemSource": "系統",
+  "Ime/SelectAll": "全選",
   "Nav/Home": "主頁",
   "Nav/Settings": "設定",
   "Settings/LanguageLabel": "語言",

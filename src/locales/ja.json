@@ -79,6 +79,7 @@
   "Tsf/GenericException": "TSF例外: {0}",
   "Ime/Weixin": "WeChat入力",
   "Ime/SystemSource": "システム",
+  "Ime/SelectAll": "すべて選択",
   "Nav/Home": "ホーム",
   "Nav/Settings": "設定",
   "Settings/LanguageLabel": "言語",
