@@ -1,0 +1,57 @@
+//! 应用级命令：版本号、数据目录、语言偏好与简单设置读写。
+
+use tauri::State;
+
+use crate::error::{internal_error, AppResult};
+use crate::language;
+use crate::state::AppState;
+use crate::storage;
+
+/// 应用版本号（取自 Cargo.toml 的 package.version）。
+#[tauri::command]
+pub fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// 应用数据目录路径。
+#[tauri::command]
+pub fn get_data_dir(state: State<'_, AppState>) -> String {
+    state.data_dir.to_string_lossy().to_string()
+}
+
+/// 界面语言模式（`auto` / `zh-Hans` / `zh-Hant` / `ja`）。
+///
+/// 库里若存着非法值（旧版数据或外部写入），返回 `auto` 兜底，
+/// 与原 WinUI 3 版 `SettingsPersistence.LoadLanguageMode` 的处理一致。
+#[tauri::command]
+pub fn get_language_preference(state: State<'_, AppState>) -> AppResult<String> {
+    let conn = state.db.lock().map_err(|_| internal_error())?;
+    let stored = storage::get_setting(&conn, storage::SETTING_LANGUAGE, language::AUTOMATIC);
+    Ok(if language::is_supported_mode(&stored) {
+        stored
+    } else {
+        language::AUTOMATIC.to_string()
+    })
+}
+
+/// 写入简单设置项（键值表）。
+///
+/// 语言模式写库前先归一化，避免非法值被持久化后无法再被识别
+/// （与原 WinUI 3 版 `SettingsPersistence.SaveLanguageMode` 一致）。
+#[tauri::command]
+pub fn set_setting(key: String, value: String, state: State<'_, AppState>) -> AppResult<()> {
+    let value = if key == storage::SETTING_LANGUAGE {
+        language::normalize_mode(&value).to_string()
+    } else {
+        value
+    };
+    let conn = state.db.lock().map_err(|_| internal_error())?;
+    storage::set_setting(&conn, &key, &value).map_err(|_| internal_error())
+}
+
+/// 读取简单设置项；不存在时返回空串。
+#[tauri::command]
+pub fn get_setting(key: String, state: State<'_, AppState>) -> AppResult<String> {
+    let conn = state.db.lock().map_err(|_| internal_error())?;
+    Ok(storage::get_setting(&conn, &key, ""))
+}

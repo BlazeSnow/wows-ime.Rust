@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+
+  <!-- Identity 必须与微软商店中已发布的 wows-ime 应用一致（沿用原 WinUI 3 版身份） -->
+  <Identity
+    Name="BlazeSnow.WOWS-IME"
+    Publisher="CN=C171AF55-419C-4E73-B34E-CB98C8F1EB78"
+    Version="@VERSION@"
+    ProcessorArchitecture="@ARCH@" />
+
+  <Properties>
+    <DisplayName>WOWS-IME</DisplayName>
+    <PublisherDisplayName>BlazeSnow</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26226.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="zh-hans" />
+    <Resource Language="zh-hant" />
+    <Resource Language="ja" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="App"
+      Executable="wows-ime.exe"
+      EntryPoint="windows.fullTrustApplication">
+      <uap:VisualElements
+        DisplayName="WOWS-IME"
+        Description="IME configuration tool for World of Warships"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\SmallTile.png"
+          Square310x310Logo="Assets\LargeTile.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
