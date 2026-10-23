@@ -49,18 +49,19 @@
 
 ### 应用名称
 
-- **微软商店政策 10.1.1**：应用标题不得以所参照软件或服务的名称开头。因此「应用名」（商店显示名与原生窗口标题）由「战舰世界输入法配置工具」更名为「**WOWS输入法工具**」（繁体「WOWS輸入法工具」、日语「WOWS用IMEツール」）。
-- **应用内标题栏展示的仍是描述性的旧名**（`App/Title`）——它说明这个应用做什么；10.1.1 约束的是应用名（商店显示名与窗口标题），不是界面正文。两处用不同的名字是有意为之：窗口标题给系统看（须合规），应用内标题给用户看（须说明功能）。
+- **微软商店政策 10.1.1**：应用标题不得以所参照软件或服务的名称开头。因此「应用名」（商店列表名与原生窗口标题）由「战舰世界输入法配置工具」更名为「**WOWS输入法工具**」（繁体「WOWS輸入法工具」、日语「WOWS用IMEツール」）。
+- **应用内标题栏展示的仍是描述性的旧名**（`App/Title`）——它说明这个应用做什么；10.1.1 约束的是应用名（商店列表名与窗口标题），不是界面正文。两处用不同的名字是有意为之：窗口标题给系统看（须合规），应用内标题给用户看（须说明功能）。
 - 名称分工：
 
   | 位置 | 键 | 取值 | 用途 |
   | --- | --- | --- | --- |
   | `src/locales/*.json` | `App/Title` | 旧名 | 应用内标题栏 |
-  | `src/locales/*.json` | `AppDisplayName` | 新名 | 原生窗口标题（运行时设置） |
+  | `src/locales/*.json` | `AppDisplayName` | 新名（分语种） | 原生窗口标题（运行时设置） |
   | `src-tauri/tauri.conf.json` | `window.title` | 新名 | 原生窗口标题初值（打包后可见） |
-  | `msix/AppxManifest.template.xml` | `DisplayName` / `uap:VisualElements/@DisplayName` | 新名 | 商店包显示名 |
+  | `msix/AppxManifest.template.xml` | `DisplayName` / `uap:VisualElements/@DisplayName` | `WOWS-IME` | 商店包显示名（开始菜单） |
 
-- 界面内标题栏不设副标题：原生窗口标题已经显示应用名，再带一句「战舰世界中文输入法配置工具」属重复信息。原先承载副标题的 `AppDescription` 键已从本地化资源中移除；该文案在 MSIX 清单的 `uap:VisualElements/@Description` 中仍以硬编码形式保留（清单读不到应用的 JSON 资源）。
+- **商店包显示名固定为英文 `WOWS-IME`，不随语种变化**。MSIX 清单里的字符串要按语种区分，得靠 `ms-resource:` 引用加 resources.pri 生成；本项目不做这套机制，于是清单里只能硬编码。硬编码中文会让繁中与日语用户在开始菜单看到简体名，改成 ASCII 品牌名就没有这个问题。窗口标题仍按界面语言设置，不受影响。
+- 界面内标题栏不设副标题：原生窗口标题已经显示应用名，再带一句「战舰世界输入法配置工具」属重复信息。原先承载副标题的 `AppDescription` 键已从本地化资源中移除；清单的 `uap:VisualElements/@Description` 同样无法按语种区分，固定写英文 `IME configuration tool for World of Warships`（应用同时支持中文与日文输入法，不只写「Chinese IME」）。
 - `productName` 与包身份 `BlazeSnow.WOWS-IME` 保持不变：前者决定二进制文件名，后者是商店里已登记的身份，不能随意改。
 - 原生窗口标题用 `getCurrentWindow().setTitle()` 在运行时跟随界面语言，需要在 `capabilities/default.json` 里放行 `core:window:allow-set-title`。
 
