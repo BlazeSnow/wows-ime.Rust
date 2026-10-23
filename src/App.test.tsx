@@ -63,12 +63,12 @@ describe("App 外壳", () => {
     render(<App />);
 
     // 设置页常驻在 DOM 里但不可见，切过去才显示
-    expect(screen.getByText("项目官网")).not.toBeVisible();
+    expect(screen.getByText("软件官网")).not.toBeVisible();
 
     await user.click(await screen.findByRole("button", { name: "设置" }));
 
     await waitFor(() => {
-      expect(screen.getByText("项目官网")).toBeVisible();
+      expect(screen.getByText("软件官网")).toBeVisible();
     });
   });
 
@@ -87,7 +87,7 @@ describe("App 外壳", () => {
 
     await user.click(screen.getByRole("button", { name: "设置" }));
     await waitFor(() => {
-      expect(screen.getByText("项目官网")).toBeVisible();
+      expect(screen.getByText("软件官网")).toBeVisible();
     });
 
     await user.click(screen.getByRole("button", { name: "主页" }));
