@@ -62,10 +62,37 @@ describe("App 外壳", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    // 设置页常驻在 DOM 里但不可见，切过去才显示
+    expect(screen.getByText("项目官网")).not.toBeVisible();
+
     await user.click(await screen.findByRole("button", { name: "设置" }));
 
     await waitFor(() => {
-      expect(screen.getByText("项目官网")).toBeInTheDocument();
+      expect(screen.getByText("项目官网")).toBeVisible();
+    });
+  });
+
+  it("切到设置再切回，向导仍停在原来的步骤", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("第 1 步，共 3 步")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await waitFor(() => {
+      expect(screen.getByText("第 2 步，共 3 步")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "设置" }));
+    await waitFor(() => {
+      expect(screen.getByText("项目官网")).toBeVisible();
+    });
+
+    await user.click(screen.getByRole("button", { name: "主页" }));
+    await waitFor(() => {
+      expect(screen.getByText("第 2 步，共 3 步")).toBeInTheDocument();
     });
   });
 

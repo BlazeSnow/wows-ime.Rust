@@ -57,7 +57,16 @@ export default function App() {
           ))}
         </nav>
         <main className="min-w-0 flex-1 overflow-y-auto p-5">
-          {page === "home" ? <HomePage /> : <SettingsPage />}
+          {/* 两个页面都保持挂载，只切换显示。
+              向导的当前步骤与第 2 步的勾选状态只存在于 HomePage 的组件状态里，
+              卸载再挂载会把用户退回第 1 步并清空已勾选的输入法。
+              用 hidden 属性而非样式类：无样式时同样生效，读屏也会跳过。 */}
+          <div hidden={page !== "home"}>
+            <HomePage />
+          </div>
+          <div hidden={page !== "settings"}>
+            <SettingsPage />
+          </div>
         </main>
       </div>
       <Toaster />
