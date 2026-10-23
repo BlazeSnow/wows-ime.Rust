@@ -7,9 +7,12 @@
 | 内容 | 位置 |
 | --- | --- |
 | 设置库 | `<应用数据目录>\settings.db` |
-| 旧版配置（只读来源） | `%LOCALAPPDATA%\Packages\BlazeSnow.WOWS-IME\LocalState\config.json` |
+| 旧版数据（只读来源） | `%LOCALAPPDATA%\Packages\BlazeSnow.WOWS-IME_*\LocalState\` |
 
 应用数据目录由 Tauri 的 `app_data_dir()` 给出（标识符 `com.blazesnow.wowsime`）。
+
+旧包的目录名带发布者哈希后缀（实际形如 `BlazeSnow.WOWS-IME_cavwvnm5yrdtm`），
+哈希随发布者证书而定，不能写死整个目录名——代码按包族名**前缀**在 `Packages` 下查找。
 
 ## 表结构
 
@@ -64,7 +67,14 @@
 
 ## 旧数据迁移
 
-启动时若检测到旧 WinUI 3 版本的 `config.json`，执行一次迁移：
+旧 WinUI 3 版有两个时代的存储，迁移按「先新后旧」的顺序取：
+
+| 旧版 | 存储位置 | 迁移内容 |
+| --- | --- | --- |
+| v2026.6.5 起 | `LocalState\settings.db`（SQLite） | `custom_game_paths`、`custom_input_methods` 两张表 |
+| 更早的版本 | `LocalState\config.json` | `SelectedGamePath`、`GamePaths[]`、`Ime[]` |
+
+`config.json` 的字段映射：
 
 | 旧字段 | 新位置 |
 | --- | --- |
@@ -72,11 +82,18 @@
 | `GamePaths[]`（`Path` / `Name`） | `custom_game_paths` |
 | `Ime[]`（`Name` / `Category`） | `custom_input_methods` |
 
+`settings.db` 里的两张表与本移植版**结构完全一致**，按行拷贝即可，
+`created_at` / `updated_at` 一并保留。
+
 规则：
 
+- 两种来源都存在时以 `settings.db` 为准（它是新格式，状态更完整）。
+- **旧版的标量设置不迁移**：它们在 `ApplicationData.Current.LocalSettings` 里
+  （注册表 / `settings.dat`），不在 SQLite 中；`Game.SelectedPath` 与 `Settings.Language`
+  需要用户重新选择，界面语言默认 `auto` 会自动跟随系统。
 - `GamePaths[].Name` 为空时用目录名兜底，仍为空则用完整路径。
 - `Ime[].Category` 未知值归为 `ChineseSimplified`。
-- 迁移成功后旧文件改名为 `config.json.migrated`（已存在则先删除旧的改名文件）。
+- 迁移成功后旧 `config.json` 改名为 `config.json.migrated`（已存在则先删除旧的改名文件）。
 - **迁移写入只 upsert、不删除**。全量同步语义（upsert + 删缺失行）只用于用户主动保存；
   迁移若沿用全量同步，会把用户在 Tauri 版里已添加的数据删掉。
 - **迁移标记存在库里**（`Settings.LegacyMigrated`），不依赖文件改名是否成功。

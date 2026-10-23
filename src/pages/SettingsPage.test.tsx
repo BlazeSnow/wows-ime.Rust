@@ -72,19 +72,31 @@ describe("SettingsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("软件版本")).toBeInTheDocument();
     });
-    for (const title of ["语言", "软件版本", "项目官网", "项目仓库"]) {
+    for (const title of ["语言", "软件官网", "软件仓库", "软件版本"]) {
       const heading = screen.getByText(title);
       expect(heading.querySelector("svg"), `${title} 卡片应带图标`).not.toBeNull();
     }
   });
 
-  it("展示项目官网与仓库入口", async () => {
+  it("版本号卡片排在最下面", async () => {
     render(<SettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("项目官网")).toBeInTheDocument();
+      expect(screen.getByText("软件版本")).toBeInTheDocument();
     });
-    expect(screen.getByText("项目仓库")).toBeInTheDocument();
+    const titles = Array.from(
+      document.querySelectorAll('[data-slot="card-title"]'),
+    ).map((element) => element.textContent);
+    expect(titles).toEqual(["语言", "软件官网", "软件仓库", "软件版本"]);
+  });
+
+  it("展示软件官网与仓库入口", async () => {
+    render(<SettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("软件官网")).toBeInTheDocument();
+    });
+    expect(screen.getByText("软件仓库")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开官网" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "打开仓库" })).toBeInTheDocument();
   });
@@ -95,7 +107,7 @@ describe("SettingsPage", () => {
     render(<SettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("项目官网")).toBeInTheDocument();
+      expect(screen.getByText("软件官网")).toBeInTheDocument();
     });
 
     // 展示的地址直接来自链接常量，点击打开的必须是同一个地址
@@ -156,7 +168,7 @@ describe("SettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "打开官网" }));
 
     await waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith("打开项目官网失败。");
+      expect(toastError).toHaveBeenCalledWith("打开软件官网失败。");
     });
   });
 

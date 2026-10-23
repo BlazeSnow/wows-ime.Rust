@@ -401,16 +401,198 @@ fn legacy_config_with_non_object_root_is_ignored() {
 #[test]
 fn legacy_local_state_dir_points_at_msix_package_folder() {
     let Some(dir) = legacy_local_state_dir() else {
-        // 无 LOCALAPPDATA 的环境（如 CI 的某些沙箱）跳过断言
+        // 无 LOCALAPPDATA 或未安装过旧包的环境跳过断言
         return;
     };
-    let expected = Path::new("Packages")
-        .join(LEGACY_PACKAGE_FAMILY_NAME)
-        .join("LocalState");
+    // 包族目录名带发布者哈希后缀（BlazeSnow.WOWS-IME_cavwvnm5yrdtm），
+    // 因此只要求以包族名前缀开头，而不是完全相等。
+    let family = dir
+        .parent()
+        .and_then(Path::file_name)
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
     assert!(
-        dir.ends_with(&expected),
-        "{} 应以 {} 结尾",
-        dir.display(),
-        expected.display()
+        family.starts_with(LEGACY_PACKAGE_FAMILY_NAME),
+        "包族目录 {} 应以 {} 开头",
+        family,
+        LEGACY_PACKAGE_FAMILY_NAME
     );
+    assert_eq!(dir.file_name().unwrap(), "LocalState");
+}
+
+#[test]
+fn legacy_package_family_dir_is_found_by_prefix() {
+    let packages = std::env::temp_dir().join("wows-ime-packages-prefix-test");
+    let _ = std::fs::remove_dir_all(&packages);
+    let family = packages.join("BlazeSnow.WOWS-IME_cavwvnm5yrdtm");
+    std::fs::create_dir_all(family.join("LocalState")).unwrap();
+    // 同前缀但没有 LocalState 的目录不应被误选
+    std::fs::create_dir_all(packages.join("BlazeSnow.WOWS-IME_其它")).unwrap();
+    // 不同包的目录不应被误选
+    std::fs::create_dir_all(packages.join("BlazeSnow.Other_cavwvnm5yrdtm")).unwrap();
+
+    let local_state = legacy_local_state_dir_in(&packages).unwrap();
+    assert_eq!(local_state, family.join("LocalState"));
+
+    let _ = std::fs::remove_dir_all(&packages);
+}
+
+/// 建一个旧 WinUI 3 版风格的 LocalState 目录（含 `settings.db`）。
+fn legacy_state_dir_with_db(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(name);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let legacy = Connection::open(dir.join(LEGACY_DATABASE_FILE_NAME)).unwrap();
+    legacy
+        .execute_batch(
+            "CREATE TABLE custom_game_paths (
+                 display_name TEXT NOT NULL,
+                 path TEXT PRIMARY KEY,
+                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+             );
+             CREATE TABLE custom_input_methods (
+                 display_name TEXT PRIMARY KEY,
+                 category TEXT NOT NULL,
+                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+             );",
+        )
+        .unwrap();
+    legacy
+        .execute(
+            "INSERT INTO custom_game_paths (display_name, path, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                "旧路径",
+                "E:\\temp",
+                "2026-10-22 11:21:44",
+                "2026-10-22 11:21:44"
+            ],
+        )
+        .unwrap();
+    legacy
+        .execute(
+            "INSERT INTO custom_input_methods (display_name, category, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                "winui测试",
+                "ChineseSimplified",
+                "2026-10-22 11:21:54",
+                "2026-10-22 11:21:54"
+            ],
+        )
+        .unwrap();
+    dir
+}
+
+#[test]
+fn legacy_settings_db_is_migrated() {
+    let conn = conn();
+    let dir = legacy_state_dir_with_db("wows-ime-legacy-db-test");
+
+    assert!(migrate_legacy_data(&conn, &dir));
+
+    let paths = load_custom_game_paths(&conn);
+    assert_eq!(paths.len(), 1);
+    assert_eq!(paths[0].path, "E:\\temp");
+    assert_eq!(paths[0].display_name, "旧路径");
+
+    let methods = load_custom_input_methods(&conn);
+    assert_eq!(methods.len(), 1);
+    assert_eq!(methods[0].display_name, "winui测试");
+    assert_eq!(methods[0].category, "ChineseSimplified");
+
+    // 迁移标记写入后不再重复迁移
+    assert_eq!(get_setting(&conn, SETTING_LEGACY_MIGRATED, ""), "1");
+    assert!(!migrate_legacy_data(&conn, &dir));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn legacy_settings_db_migration_keeps_paths_added_by_this_version() {
+    let conn = conn();
+    save_custom_game_paths(
+        &conn,
+        &[PersistedGamePath {
+            display_name: "本版本路径".to_string(),
+            path: "C:\\Current".to_string(),
+        }],
+    )
+    .unwrap();
+    let dir = legacy_state_dir_with_db("wows-ime-legacy-db-keep-test");
+
+    assert!(migrate_legacy_data(&conn, &dir));
+
+    let paths = load_custom_game_paths(&conn);
+    assert_eq!(paths.len(), 2, "迁移不应删除本版本已保存的路径: {paths:?}");
+    assert!(paths.iter().any(|item| item.path == "C:\\Current"));
+    assert!(paths.iter().any(|item| item.path == "E:\\temp"));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn legacy_settings_db_migration_preserves_timestamps() {
+    let conn = conn();
+    let dir = legacy_state_dir_with_db("wows-ime-legacy-db-time-test");
+
+    assert!(migrate_legacy_data(&conn, &dir));
+
+    let created_at: String = conn
+        .query_row(
+            "SELECT created_at FROM custom_game_paths WHERE path = ?1",
+            params!["E:\\temp"],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(created_at, "2026-10-22 11:21:44");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn legacy_settings_db_with_unknown_category_falls_back_to_simplified() {
+    let conn = conn();
+    let dir = std::env::temp_dir().join("wows-ime-legacy-db-category-test");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let legacy = Connection::open(dir.join(LEGACY_DATABASE_FILE_NAME)).unwrap();
+    legacy
+        .execute_batch(
+            "CREATE TABLE custom_input_methods (
+                 display_name TEXT PRIMARY KEY,
+                 category TEXT NOT NULL,
+                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+             );",
+        )
+        .unwrap();
+    legacy
+        .execute(
+            "INSERT INTO custom_input_methods (display_name, category, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params!["未知分类", "Klingon", "2026-10-22 11:21:54", "2026-10-22 11:21:54"],
+        )
+        .unwrap();
+
+    assert!(migrate_legacy_data(&conn, &dir));
+
+    let methods = load_custom_input_methods(&conn);
+    assert_eq!(methods.len(), 1);
+    assert_eq!(methods[0].category, "ChineseSimplified");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn missing_legacy_dir_is_not_an_error() {
+    let conn = conn();
+    let dir = std::env::temp_dir().join("wows-ime-legacy-missing-test");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    assert!(!migrate_legacy_data(&conn, &dir));
+    assert!(load_custom_game_paths(&conn).is_empty());
+    assert!(load_custom_input_methods(&conn).is_empty());
 }

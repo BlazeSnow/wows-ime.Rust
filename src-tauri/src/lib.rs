@@ -51,10 +51,11 @@ pub fn run() {
                 std::io::Error::new(std::io::ErrorKind::Other, format!("打开设置库失败：{e}"))
             })?;
 
-            // 首次运行迁移旧 WinUI 3 版本（MSIX 包）的 config.json。
+            // 首次运行迁移旧 WinUI 3 版本（MSIX 包）的数据：
+            // LocalState 的 settings.db（v2026.6.5 起）或更早的 config.json。
             // 迁移失败不影响启动，按原版语义静默忽略。
             if let Some(legacy_dir) = storage::legacy_local_state_dir() {
-                let _ = storage::migrate_legacy_config_json(&db, &legacy_dir);
+                let _ = storage::migrate_legacy_data(&db, &legacy_dir);
             }
             let _ = storage::set_setting(
                 &db,

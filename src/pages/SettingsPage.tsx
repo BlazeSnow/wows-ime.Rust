@@ -56,7 +56,7 @@ function IconCardTitle({
   );
 }
 
-/** 设置页：界面语言切换、软件版本与项目链接。 */
+/** 设置页：界面语言切换、软件官网与仓库、软件版本。 */
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const [version, setVersion] = useState("");
@@ -121,17 +121,6 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <IconCardTitle icon={Info}>
-            {t("AppVersionCardHeader.Text")}
-          </IconCardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          {version}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <IconCardTitle icon={Globe}>
             {t("ProjectWebsiteCardHeader.Text")}
           </IconCardTitle>
@@ -171,6 +160,17 @@ export function SettingsPage() {
           >
             {t("OpenProjectRepositoryButton.Content")}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <IconCardTitle icon={Info}>
+            {t("AppVersionCardHeader.Text")}
+          </IconCardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          {version}
         </CardContent>
       </Card>
     </div>
