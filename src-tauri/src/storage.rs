@@ -1,9 +1,12 @@
-//! 持久化：SQLite 设置库（简单设置 + 列表数据）与旧版 `config.json` 迁移。
+//! 持久化：SQLite 设置库（简单设置 + 列表数据）与旧版数据迁移。
 //!
 //! 表结构与原 WinUI 3 版本一致，便于迁移：
 //! - `settings`：简单状态键值表（对应原 `ApplicationData.Current.LocalSettings`）
 //! - `custom_game_paths`：自定义游戏路径
 //! - `custom_input_methods`：自定义输入法
+//!
+//! 迁移来源有两个：旧 WinUI 3 版的 LocalState `settings.db`（v2026.6.5 起）
+//! 与更早的 LocalState `config.json`。
 //!
 //! 持久化异常一律静默吞掉，不影响主流程（与原版行为一致）。
 
@@ -15,11 +18,17 @@ use serde::Deserialize;
 use crate::models::{ImeCategory, PersistedGamePath, PersistedInputMethod};
 
 /// 旧 WinUI 3 版本的 MSIX 包身份（决定其 LocalState 目录）。
+///
+/// 注意这是**前缀**：包族目录名是「包名 + "_" + 发布者哈希」，
+/// 实际形如 `BlazeSnow.WOWS-IME_cavwvnm5yrdtm`，哈希随发布者证书而定，
+/// 写死整个目录名会找不到旧数据，必须按前缀查找。
 pub const LEGACY_PACKAGE_FAMILY_NAME: &str = "BlazeSnow.WOWS-IME";
-/// 旧配置文件名。
+/// 旧配置文件名（v2026.6.5 之前使用）。
 pub const LEGACY_CONFIG_FILE_NAME: &str = "config.json";
 /// 迁移成功后旧配置改用的文件名。
 pub const MIGRATED_LEGACY_CONFIG_FILE_NAME: &str = "config.json.migrated";
+/// 旧 WinUI 3 版本的 SQLite 数据库文件名（v2026.6.5 起使用，位于 LocalState）。
+pub const LEGACY_DATABASE_FILE_NAME: &str = "settings.db";
 
 /// 界面语言模式键（对应原版 `Settings.Language`）。
 pub const SETTING_LANGUAGE: &str = "Settings.Language";
@@ -276,14 +285,31 @@ fn delete_missing_rows(
 }
 
 /// 旧 WinUI 3 版本的 LocalState 目录（MSIX 包私有目录）。
+///
+/// 包族目录名带发布者哈希后缀（`BlazeSnow.WOWS-IME_cavwvnm5yrdtm`），
+/// 因此在 `Packages` 下按包族名前缀查找，而不是拼死整个目录名。
 pub fn legacy_local_state_dir() -> Option<PathBuf> {
     let local_app_data = std::env::var_os("LOCALAPPDATA")?;
-    Some(
-        PathBuf::from(local_app_data)
-            .join("Packages")
-            .join(LEGACY_PACKAGE_FAMILY_NAME)
-            .join("LocalState"),
-    )
+    legacy_local_state_dir_in(&PathBuf::from(local_app_data).join("Packages"))
+}
+
+/// 在 `Packages` 目录下查找旧包族目录，返回其中的 `LocalState`。
+///
+/// 前缀匹配 `BlazeSnow.WOWS-IME`，取第一个含 `LocalState` 子目录的候选。
+pub fn legacy_local_state_dir_in(packages_dir: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(packages_dir).ok()?;
+    let mut candidates: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(LEGACY_PACKAGE_FAMILY_NAME))
+        })
+        .filter(|path| path.join("LocalState").is_dir())
+        .collect();
+    candidates.sort();
+    candidates.into_iter().next().map(|path| path.join("LocalState"))
 }
 
 /// 旧版 `config.json` 结构（仅取迁移需要的字段）。
@@ -313,6 +339,155 @@ struct LegacyInputMethod {
     name: Option<String>,
     #[serde(rename = "Category")]
     category: Option<String>,
+}
+
+/// 迁移旧版数据：优先读旧 SQLite `settings.db`，其次读旧 `config.json`。
+///
+/// 旧 WinUI 3 版有两个时代的存储：
+/// - v2026.6.5 起：自定义路径与自定义输入法存在 LocalState 的 `settings.db` 里
+///   （标量设置在 LocalSettings，按约定不迁移）；
+/// - 更早的版本：全部存在 LocalState 的 `config.json` 里。
+///
+/// 两种来源都存在时以 `settings.db` 为准（它是新格式，状态更完整）。
+pub fn migrate_legacy_data(conn: &Connection, legacy_dir: &Path) -> bool {
+    if migrate_legacy_settings_db(conn, legacy_dir) {
+        return true;
+    }
+    migrate_legacy_config_json(conn, legacy_dir)
+}
+
+/// 旧版 SQLite `settings.db` 中的一行自定义游戏路径。
+struct LegacyGamePathRow {
+    display_name: String,
+    path: String,
+    created_at: String,
+    updated_at: String,
+}
+
+/// 旧版 SQLite `settings.db` 中的一行自定义输入法。
+struct LegacyInputMethodRow {
+    display_name: String,
+    category: String,
+    created_at: String,
+    updated_at: String,
+}
+
+/// 迁移旧 WinUI 3 版的 SQLite `settings.db`。
+///
+/// 旧版把自定义游戏路径存 `custom_game_paths`、自定义输入法存 `custom_input_methods`，
+/// 表结构与本移植版完全一致，直接按行拷贝即可。旧库没有 `settings` 表——
+/// 旧版的标量设置在 LocalSettings 里，按约定不迁移。
+///
+/// 只写入不删除，绝不动用户已有的数据；数据落库成功后才记迁移标记。
+pub fn migrate_legacy_settings_db(conn: &Connection, legacy_dir: &Path) -> bool {
+    if get_setting(conn, SETTING_LEGACY_MIGRATED, "") == "1" {
+        return false;
+    }
+    let legacy_path = legacy_dir.join(LEGACY_DATABASE_FILE_NAME);
+    if !legacy_path.is_file() {
+        return false;
+    }
+    let Ok(legacy) = rusqlite::Connection::open_with_flags(
+        &legacy_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    ) else {
+        return false;
+    };
+
+    let game_paths = read_legacy_game_paths(&legacy);
+    let input_methods = read_legacy_input_methods(&legacy);
+    if game_paths.is_empty() && input_methods.is_empty() {
+        return false;
+    }
+
+    let transaction = match conn.unchecked_transaction() {
+        Ok(transaction) => transaction,
+        Err(_) => return false,
+    };
+    for row in &game_paths {
+        if transaction
+            .execute(
+                "INSERT INTO custom_game_paths (display_name, path, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(path) DO UPDATE SET
+                     display_name = excluded.display_name,
+                     updated_at = excluded.updated_at;",
+                params![row.display_name, row.path, row.created_at, row.updated_at],
+            )
+            .is_err()
+        {
+            return false;
+        }
+    }
+    for row in &input_methods {
+        let category = ImeCategory::from_stored(&row.category);
+        if transaction
+            .execute(
+                "INSERT INTO custom_input_methods (display_name, category, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(display_name) DO UPDATE SET
+                     category = excluded.category,
+                     updated_at = excluded.updated_at;",
+                params![
+                    row.display_name,
+                    category.as_str(),
+                    row.created_at,
+                    row.updated_at
+                ],
+            )
+            .is_err()
+        {
+            return false;
+        }
+    }
+    if transaction.commit().is_err() {
+        return false;
+    }
+
+    // 数据落库成功后才记标记；失败不记，下次启动会重试。
+    set_setting(conn, SETTING_LEGACY_MIGRATED, "1").is_ok()
+}
+
+/// 读取旧库的自定义游戏路径；表不存在或读失败时返回空列表。
+fn read_legacy_game_paths(legacy: &Connection) -> Vec<LegacyGamePathRow> {
+    let Ok(mut statement) = legacy.prepare(
+        "SELECT display_name, path, created_at, updated_at FROM custom_game_paths",
+    ) else {
+        return Vec::new();
+    };
+    let rows = statement.query_map([], |row| {
+        Ok(LegacyGamePathRow {
+            display_name: row.get(0)?,
+            path: row.get(1)?,
+            created_at: row.get(2)?,
+            updated_at: row.get(3)?,
+        })
+    });
+    match rows {
+        Ok(rows) => rows.filter_map(Result::ok).collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// 读取旧库的自定义输入法；表不存在或读失败时返回空列表。
+fn read_legacy_input_methods(legacy: &Connection) -> Vec<LegacyInputMethodRow> {
+    let Ok(mut statement) = legacy.prepare(
+        "SELECT display_name, category, created_at, updated_at FROM custom_input_methods",
+    ) else {
+        return Vec::new();
+    };
+    let rows = statement.query_map([], |row| {
+        Ok(LegacyInputMethodRow {
+            display_name: row.get(0)?,
+            category: row.get(1)?,
+            created_at: row.get(2)?,
+            updated_at: row.get(3)?,
+        })
+    });
+    match rows {
+        Ok(rows) => rows.filter_map(Result::ok).collect(),
+        Err(_) => Vec::new(),
+    }
 }
 
 /// 迁移旧版 `config.json`：成功后把文件改名为 `config.json.migrated`。
